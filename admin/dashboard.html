@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/admin/assets/css/admin.css?v=20260525-admin-logo-controls-v2" />
+    <script defer src="/admin/assets/js/admin.js?v=20260525-admin-logo-controls-v2"></script>
+  </head>
+  <body data-page="dashboard">
+    <div class="admin-shell">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main">
+        <div class="topbar" id="topbar"></div>
+        <h1 class="page-title">Dashboard</h1>
+        <div class="grid grid-4" id="stats-cards"></div>
+
+        <section class="card" style="margin-top:1rem;">
+          <h2 style="margin-top:0;">Ultimele 5 lead-uri</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nume</th><th>Email</th><th>Status</th><th>Data</th></tr></thead>
+              <tbody id="recent-leads"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card" style="margin-top:1rem;">
+          <h2 style="margin-top:0;">Shortcut-uri</h2>
+          <div class="row">
+            <a class="btn btn-secondary" href="/admin/homepage.html">Editare Homepage</a>
+            <a class="btn btn-secondary" href="/admin/services.html">Editare Servicii</a>
+            <a class="btn btn-secondary" href="/admin/calculator.html">Editare Calculator</a>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
+
+
+
+
+
+
+
+

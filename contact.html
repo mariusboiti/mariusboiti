@@ -1,0 +1,195 @@
+﻿<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Marius Boiti Studio | Întrebări generale și ofertă finală</title>
+    <meta
+      name="description"
+      content="Pentru site-uri noi folosește calculatorul de preț, iar pentru întrebări generale trimite un mesaj direct."
+    />
+    <link rel="canonical" href="https://mariusboiti.ro/contact" />
+    <meta property="og:title" content="Contact Marius Boiti Studio" />
+    <meta property="og:description" content="Scrie-mi pentru întrebări generale sau discutăm estimarea proiectului tău." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mariusboiti.ro/contact" />
+    <meta property="og:image" content="https://mariusboiti.ro/assets/og-default.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/css/styles.css?v=20260528-expand-v8" />
+    <script defer src="/assets/js/main.js?v=20260528-expand-v8"></script>
+    <script defer src="/assets/js/public-api.js?v=20260528-expand-v8"></script>
+  </head>
+  <body data-public-page="contact">
+    <div id="site-header"></div>
+
+    <main>
+      <section class="hero section-tight contact-vanta-hero">
+        <div id="contact-vanta-bg" class="contact-vanta-bg" aria-hidden="true"></div>
+        <div class="container">
+          <span class="kicker">Contact</span>
+          <h1>Hai să discutăm.</h1>
+          <p style="max-width:860px; color:#cbd5e1;">
+            Ai o întrebare sau vrei să explorăm un proiect împreună? Scrie-mi — răspund în 24 de ore.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container grid-2">
+          <article class="card" data-reveal>
+            <h3>Vreau un site nou</h3>
+            <p>Cel mai simplu mod să pornim e să treci prin calculator — durează 3 minute și îți dă o estimare realistă.</p>
+            <a class="split-jelly-button" href="/calculator-pret" data-calculator-cta><span class="split-jelly-label">Calculează prețul</span><span class="split-jelly-bridge" aria-hidden="true"></span><span class="split-jelly-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7H17V15"></path></svg></span></a>
+          </article>
+
+          <article class="card" data-reveal>
+            <h3>Am o întrebare</h3>
+            <p>O idee, o colaborare sau ceva ce nu se încadrează în calculator? Trimite-mi un mesaj direct.</p>
+            <a class="package-action-button" href="#formular-contact-general"><span>Trimite mesaj</span></a>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="formular-contact-general">
+        <div class="container split" style="align-items:start;">
+          <div data-reveal>
+            <h2 class="section-title">Mesaj direct</h2>
+            <p class="section-subtitle">
+              Folosește formularul de mai jos pentru orice întrebare, propunere sau colaborare care nu e o cerere de site nou.
+            </p>
+            <div class="whatsapp-box">
+              <h3 style="margin-top:0;">Răspuns rapid pe WhatsApp</h3>
+              <p style="margin-bottom:1rem; color:#dcfce7;">Dacă preferi să scrii pe WhatsApp, răspund acolo la fel de repede.</p>
+              <a class="btn btn-light" href="https://wa.me/40700000000" target="_blank" rel="noopener noreferrer">Scrie pe WhatsApp</a>
+            </div>
+          </div>
+
+          <div class="form-wrap" data-reveal>
+            <form id="formular-contact-general-form" class="contact-floating-form" action="#" method="post">
+              <div class="form-grid">
+                <div class="field input-group">
+                  <input class="input" id="general-nume" name="nume" type="text" placeholder=" " required />
+                  <label class="user-label" for="general-nume">Nume</label>
+                </div>
+                <div class="field input-group">
+                  <input class="input" id="general-email" name="email" type="email" placeholder=" " required />
+                  <label class="user-label" for="general-email">Email</label>
+                </div>
+                <div class="field full input-group">
+                  <input class="input" id="general-telefon" name="telefon" type="tel" placeholder=" " />
+                  <label class="user-label" for="general-telefon">Telefon</label>
+                </div>
+                <div class="field full input-group">
+                  <textarea class="input" id="general-mesaj" name="mesaj" placeholder=" " required></textarea>
+                  <label class="user-label" for="general-mesaj">Mesaj</label>
+                </div>
+                <input type="hidden" name="source" value="general_contact" />
+              </div>
+              <p id="general-contact-message" style="font-size:0.9rem; color:#bfdbfe; margin-top:1rem;"></p>
+              <button class="btn-primary-glow" type="submit">Trimite</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="formular-oferta-final-section" hidden>
+        <div class="container split" style="align-items:start;">
+          <div data-reveal>
+            <h2 class="section-title">Cerere ofertă finală</h2>
+            <p class="section-subtitle">
+              Acest formular este disponibil după ce completezi calculatorul de preț. Include estimarea și opțiunile selectate pentru evaluare finală.
+            </p>
+          </div>
+
+          <div class="form-wrap" data-reveal>
+            <form id="formular-oferta-finala" action="#" method="post">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="oferta-nume">Nume</label>
+                  <input id="oferta-nume" name="nume" type="text" required />
+                </div>
+                <div class="field">
+                  <label for="oferta-email">Email</label>
+                  <input id="oferta-email" name="email" type="email" required />
+                </div>
+                <div class="field">
+                  <label for="oferta-telefon">Telefon</label>
+                  <input id="oferta-telefon" name="telefon" type="tel" />
+                </div>
+                <div class="field">
+                  <label for="oferta-tip-proiect">Tip proiect</label>
+                  <input id="oferta-tip-proiect" name="tip_proiect" type="text" />
+                </div>
+                <div class="field">
+                  <label for="oferta-buget-maxim">Bugetul meu maxim este… (opțional)</label>
+                  <input id="oferta-buget-maxim" name="buget_maxim" type="text" placeholder="Ex: 3000 lei" />
+                </div>
+                <div class="field full" id="estimare-calculator-wrap">
+                  <label for="estimare-calculator">Estimare calculator</label>
+                  <textarea id="estimare-calculator" name="estimare_calculator" readonly></textarea>
+                </div>
+                <div class="field full">
+                  <label for="oferta-mesaj">Mesaj</label>
+                  <textarea id="oferta-mesaj" name="mesaj" placeholder="Adaugă detalii suplimentare pentru ofertă." required></textarea>
+                </div>
+                <div class="field full" id="confirm-estimare-wrap">
+                  <label class="consent-check">
+                    <input id="confirm-estimare" name="confirm_estimare" type="checkbox" required />
+                    <span>Am văzut estimarea de preț și bugetul meu este apropiat de intervalul afișat.</span>
+                  </label>
+                </div>
+                <input type="hidden" name="source" value="price_calculator" />
+              </div>
+              <p id="quote-contact-message" style="font-size:0.9rem; color:#bfdbfe; margin-top:1rem;"></p>
+              <button class="btn-primary-glow" type="submit">Trimite cererea pentru oferta finală</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-tight" id="calculator-gate-section" hidden>
+        <div class="container">
+          <div class="cta-strip" data-reveal>
+            <h2 class="section-title">Mai bine pornim cu o estimare.</h2>
+            <p class="section-subtitle">Calculatorul durează 3 minute și îmi oferă toate detaliile de care am nevoie pentru o ofertă corectă.</p>
+            <a class="split-jelly-button" href="/calculator-pret" data-calculator-cta><span class="split-jelly-label">Mergi la calculator</span><span class="split-jelly-bridge" aria-hidden="true"></span><span class="split-jelly-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7H17V15"></path></svg></span></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="site-footer"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.cells.min.js"></script>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

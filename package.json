@@ -1,0 +1,33 @@
+﻿{
+  "name": "mariusboiti-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Marius Boiti Studio site with custom backend and admin CMS",
+  "main": "backend/server.js",
+  "scripts": {
+    "dev": "nodemon backend/server.js",
+    "start": "node backend/server.js",
+    "db:init": "node backend/seed.js --init-only",
+    "db:seed": "node backend/seed.js --seed-only",
+    "db:reset": "node backend/seed.js --reset",
+    "db:fix-diacritics": "node backend/scripts/fix-romanian-diacritics.js",
+    "db:check-encoding": "node backend/scripts/check-encoding-issues.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

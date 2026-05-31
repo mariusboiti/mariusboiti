@@ -1,0 +1,75 @@
+﻿<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lead-uri CMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/admin/assets/css/admin.css?v=20260525-admin-logo-controls-v2" />
+    <script defer src="/admin/assets/js/admin.js?v=20260525-admin-logo-controls-v2"></script>
+  </head>
+  <body data-page="leads">
+    <div class="admin-shell">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main">
+        <div class="topbar" id="topbar"></div>
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">Lead-uri</h1>
+            <p class="muted">Filtreaza, actualizeaza statusul si urmareste cererile primite.</p>
+          </div>
+        </div>
+
+        <section class="card">
+          <form id="leads-filters" class="row row-wrap">
+            <input name="search" placeholder="Search nume/email/telefon" />
+            <select name="status">
+              <option value="">Toate statusurile</option>
+              <option value="new">new</option>
+              <option value="contacted">contacted</option>
+              <option value="quote_sent">quote_sent</option>
+              <option value="won">won</option>
+              <option value="lost">lost</option>
+            </select>
+            <input name="source" placeholder="source" />
+            <input name="project_type" placeholder="project type" />
+            <button class="btn btn-secondary" type="submit">Filtreaza</button>
+          </form>
+          <div id="leads-table-wrap" class="table-wrap" style="margin-top:1rem;"></div>
+        </section>
+
+        <section class="card" style="margin-top:1rem;">
+          <h2 style="margin-top:0;">Detalii lead</h2>
+          <form id="lead-detail-form" class="grid grid-2">
+            <div class="field"><label>Nume</label><input name="name" readonly /></div>
+            <div class="field"><label>Email</label><input name="email" readonly /></div>
+            <div class="field"><label>Telefon</label><input name="phone" readonly /></div>
+            <div class="field"><label>Project type</label><input name="project_type" /></div>
+            <div class="field"><label>Buget</label><input name="budget_range" /></div>
+            <div class="field"><label>Timeline</label><input name="timeline" /></div>
+            <div class="field" style="grid-column:1/-1;"><label>Mesaj</label><textarea name="message"></textarea></div>
+            <div class="field"><label>Status</label><select name="status"><option value="new">new</option><option value="contacted">contacted</option><option value="quote_sent">quote_sent</option><option value="won">won</option><option value="lost">lost</option></select></div>
+            <div class="field" style="grid-column:1/-1;"><label>Notite interne</label><textarea name="internal_notes"></textarea></div>
+            <p class="muted" style="grid-column:1/-1;" data-lead-meta></p>
+            <pre id="lead-summary" class="muted lead-summary">-</pre>
+            <div class="row" style="grid-column:1/-1;">
+              <a id="lead-mailto" class="btn btn-secondary" href="#">Mailto</a>
+              <a id="lead-whatsapp" class="btn btn-secondary hidden" href="#" target="_blank" rel="noopener">WhatsApp</a>
+              <button class="btn btn-primary" type="submit">Salveaza lead</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
+
+
+
+
+
+
+
+

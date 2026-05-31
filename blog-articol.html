@@ -1,0 +1,89 @@
+﻿<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Articol Blog | Marius Boiti Studio</title>
+    <meta
+      name="description"
+      content="Articole practice despre creare site-uri, SEO, landing page-uri și optimizare pentru prezență online profesională."
+    />
+    <link rel="canonical" href="https://mariusboiti.ro/blog" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Articol Blog | Marius Boiti Studio" />
+    <meta property="og:description" content="Articole practice despre creare site-uri, SEO și conversie." />
+    <meta property="og:url" content="https://mariusboiti.ro/blog" />
+    <meta property="og:image" content="https://mariusboiti.ro/assets/og-default.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/css/styles.css?v=20260528-expand-v8" />
+    <script defer src="/assets/js/main.js?v=20260528-expand-v8"></script>
+    <script defer src="/assets/js/public-api.js?v=20260528-expand-v8"></script>
+  </head>
+  <body data-public-page="blog-articol">
+    <div id="site-header"></div>
+
+    <main>
+      <section class="section">
+        <div class="container blog-post-layout">
+          <article class="blog-post-main card">
+            <span class="kicker" id="blog-post-category">Blog</span>
+            <h1 id="blog-post-title">Titlu articol</h1>
+            <p class="section-subtitle" id="blog-post-excerpt">
+              Excerpt articol. Dacă API-ul nu răspunde, această variantă fallback rămâne vizibilă.
+            </p>
+            <div class="blog-card-meta">
+              <span id="blog-post-date">-</span>
+              <span id="blog-post-reading-time">1 min</span>
+            </div>
+            <img id="blog-post-image" class="blog-post-image" src="" alt="" hidden />
+            <div class="blog-post-content" id="blog-post-content">
+              <p>Conținutul articolului se încarcă din API.</p>
+            </div>
+            <div class="blog-tags" id="blog-post-tags"></div>
+          </article>
+
+          <aside class="blog-post-side">
+            <section class="card">
+              <h3 style="margin-top:0;">Vrei să vezi cât ar costa site-ul tău?</h3>
+              <p class="muted">
+                Folosește calculatorul de preț și primești instant o estimare realistă, înainte de oferta finală.
+              </p>
+              <a class="split-jelly-button" href="/calculator-pret" data-calculator-cta>
+                <span class="split-jelly-label">Calculează prețul</span>
+                <span class="split-jelly-bridge" aria-hidden="true"></span>
+                <span class="split-jelly-circle" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7H17V15"></path></svg>
+                </span>
+              </a>
+            </section>
+            <section class="card" style="margin-top:1rem;">
+              <h3 style="margin-top:0;">Articole similare</h3>
+              <div id="blog-similar-list"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <div id="site-footer"></div>
+  </body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+

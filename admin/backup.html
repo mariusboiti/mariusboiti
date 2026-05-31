@@ -1,0 +1,50 @@
+﻿<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backup CMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/admin/assets/css/admin.css?v=20260525-admin-logo-controls-v2" />
+    <script defer src="/admin/assets/js/admin.js?v=20260525-admin-logo-controls-v2"></script>
+  </head>
+  <body data-page="backup">
+    <div class="admin-shell">
+      <aside class="sidebar" id="sidebar"></aside>
+      <main class="main">
+        <div class="topbar" id="topbar"></div>
+        <h1 class="page-title">Backup</h1>
+
+        <section class="card">
+          <h2 style="margin-top:0;">Export</h2>
+          <p class="muted">
+            Exportă JSON cu: settings, homepage sections, services, portfolio, packages, faq,
+            calculator options, calculator settings și seo pages.
+          </p>
+          <button id="download-backup-btn" class="btn btn-primary" type="button">Download backup</button>
+        </section>
+
+        <section class="card" style="margin-top:1rem;">
+          <h2 style="margin-top:0;">Import</h2>
+          <p class="muted">
+            Importul înlocuiește datele curente pentru aceleași secțiuni. Parola admin NU este inclusă în backup.
+          </p>
+          <form id="backup-import-form" class="row">
+            <input id="backup-file" type="file" accept="application/json,.json" required />
+            <button class="btn btn-secondary" type="submit">Import JSON cu confirmare</button>
+          </form>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
+
+
+
+
+
+
+
+

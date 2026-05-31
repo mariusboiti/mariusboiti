@@ -1,0 +1,35 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot /home/qxfoculahl/mariusboiti.ro
+PassengerBaseURI /
+PassengerNodejs /home/qxfoculahl/nodevenv/moveonsocial.ro/backend/18/bin/node
+PassengerAppType node
+PassengerStartupFile backend/server.js
+PassengerAppLogFile /home/qxfoculahl/logs/mariusboiti-passenger.log
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+AddDefaultCharset UTF-8
+<IfModule mod_mime.c>
+  AddType text/html .html .htm
+  AddCharset UTF-8 .html .htm .css .js .json .txt .xml .svg
+</IfModule>
+
+RewriteEngine On
+
+# Route dedicat pentru paginile individuale de portofoliu
+RewriteRule ^portofoliu/[^/]+/?$ /portofoliu-proiect.html [L]
+
+# Redirect /index.html catre /
+RewriteCond %{THE_REQUEST} \s/index\.html[\s?] [NC]
+RewriteRule ^index\.html$ / [R=301,L]
+
+# Redirect /pagina.html catre /pagina
+RewriteCond %{REQUEST_URI} !^/(api|admin|uploads|assets|backend)(/|$) [NC]
+RewriteCond %{THE_REQUEST} \s/([^.]+)\.html[\s?] [NC]
+RewriteRule ^ %1 [R=301,L]
+
+# Serveste /pagina folosind /pagina.html daca fisierul exista
+RewriteCond %{REQUEST_URI} !^/(api|admin|uploads|assets|backend)(/|$) [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+?)/?$ $1.html [L]

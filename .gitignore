@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+
+# Database
+*.db
+*.sqlite
+backend/data/
+
+# Large media — upload manual via SFTP
+assets/videos/
+poze/
+
+# Deploy archives
+*.tgz
+*.zip
+
+# Temp / screenshots
+.tmp-*
