@@ -67,7 +67,7 @@ function renderHeader() {
   mount.innerHTML = `
     <header class="site-header">
       <div class="container nav-wrap header-inner" id="nav-wrap">
-        <a class="brand" href="/"><strong>Marius Boiti</strong> Studio</a>
+        <a class="brand has-logo" href="/"><img src="/assets/logo.svg" alt="Marius Boiti Studio" class="brand-logo" /></a>
         <nav class="menu" aria-label="Naviga&#539;ie principal&#259;">
           ${links}
           <a class="split-jelly-button menu-cta" href="/calculator-pret" data-calculator-cta>${headerJellyCta}</a>

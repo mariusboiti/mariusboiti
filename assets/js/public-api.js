@@ -412,6 +412,8 @@
             img.alt = brandName;
             img.className = "brand-logo";
             brand.appendChild(img);
+          } else if (brand.querySelector(".brand-logo")) {
+            // static SVG logo already in place — keep it
           } else if (brand.querySelector("strong")) {
             brand.innerHTML = `<strong>${brandName.split(" ")[0] || "Marius"}</strong> ${brandName.split(" ").slice(1).join(" ") || "Boiti Studio"}`;
           } else {
