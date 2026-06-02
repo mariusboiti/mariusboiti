@@ -114,23 +114,28 @@ async function getAiSettingsRow(db) {
     const provider = VALID_PROVIDERS.has(process.env.AI_DEFAULT_PROVIDER) ? process.env.AI_DEFAULT_PROVIDER : "gemini";
     const model = provider === "openai"
       ? (process.env.OPENAI_MODEL || "gpt-4o-mini")
-      : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
+      : (process.env.GEMINI_MODEL || "gemini-2.0-flash");
     await db.run(
       `INSERT INTO ai_settings (provider, model, temperature, max_tokens, system_prompt, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        provider,
-        model,
-        0.7,
-        1200,
-        "Ești copywriter SEO în limba română. Scrii clar, profesionist și orientat spre conversie.",
-        nowIso(),
-        nowIso()
-      ]
+      [provider, model, 0.7, 1200, "Ești copywriter SEO în limba română. Scrii clar, profesionist și orientat spre conversie.", nowIso(), nowIso()]
     );
     row = await db.get("SELECT * FROM ai_settings ORDER BY id ASC LIMIT 1");
   }
-  return row;
+  // Provide defaults for new columns added via migration
+  return {
+    gemini_text_model: "gemini-2.0-flash",
+    openai_text_model: "gpt-4o-mini",
+    gemini_image_model: "imagen-3.0-generate-002",
+    openai_image_model: "dall-e-3",
+    ...row
+  };
+}
+
+function maskKey(key) {
+  if (!key || String(key).trim().length < 8) return "";
+  const k = String(key).trim();
+  return `${k.slice(0, 4)}${"•".repeat(Math.min(20, k.length - 8))}${k.slice(-4)}`;
 }
 
 function mapCategory(row) {
@@ -558,11 +563,14 @@ adminRouter.post("/blog/posts/:id/analyze-seo", async (req, res) => {
 adminRouter.get("/ai/settings", async (_req, res) => {
   const db = await getDb();
   const settings = await getAiSettingsRow(db);
+  const { gemini_api_key, openai_api_key, ...safeSettings } = settings;
   return ok(res, {
-    ...settings,
+    ...safeSettings,
+    gemini_key_masked: maskKey(gemini_api_key || process.env.GEMINI_API_KEY),
+    openai_key_masked: maskKey(openai_api_key || process.env.OPENAI_API_KEY),
     api_key_status: {
-      gemini: Boolean(process.env.GEMINI_API_KEY),
-      openai: Boolean(process.env.OPENAI_API_KEY)
+      gemini: Boolean(gemini_api_key || process.env.GEMINI_API_KEY),
+      openai: Boolean(openai_api_key || process.env.OPENAI_API_KEY)
     }
   });
 });
@@ -571,30 +579,48 @@ adminRouter.put("/ai/settings", async (req, res) => {
   const db = await getDb();
   const current = await getAiSettingsRow(db);
   const provider = VALID_PROVIDERS.has(req.body.provider) ? req.body.provider : current.provider;
-  const model = sanitizeText(
-    req.body.model
-      || (provider === "openai" ? process.env.OPENAI_MODEL : process.env.GEMINI_MODEL)
-      || current.model
-      || "",
-    120
-  );
   const temperature = Number.isFinite(Number(req.body.temperature)) ? Number(req.body.temperature) : Number(current.temperature || 0.7);
   const maxTokens = Number.isFinite(Number(req.body.max_tokens)) ? Number(req.body.max_tokens) : Number(current.max_tokens || 1200);
   const systemPrompt = sanitizeNullable(req.body.system_prompt, 6000);
 
+  // Model fields
+  const geminiTextModel = sanitizeText(req.body.gemini_text_model || current.gemini_text_model || "gemini-2.0-flash", 120);
+  const openaiTextModel = sanitizeText(req.body.openai_text_model || current.openai_text_model || "gpt-4o-mini", 120);
+  const geminiImageModel = sanitizeText(req.body.gemini_image_model || current.gemini_image_model || "imagen-3.0-generate-002", 120);
+  const openaiImageModel = sanitizeText(req.body.openai_image_model || current.openai_image_model || "dall-e-3", 120);
+
+  // API keys — only update if a non-placeholder value is sent
+  const newGeminiKey = sanitizeText(req.body.gemini_api_key || "", 500);
+  const newOpenaiKey = sanitizeText(req.body.openai_api_key || "", 500);
+  const isMasked = (v) => v && /^[A-Za-z0-9]{2,8}•/.test(v); // looks like a masked key
+
+  const geminiKey = (newGeminiKey && !isMasked(newGeminiKey)) ? newGeminiKey : (current.gemini_api_key || null);
+  const openaiKey = (newOpenaiKey && !isMasked(newOpenaiKey)) ? newOpenaiKey : (current.openai_api_key || null);
+
+  // model column kept for legacy compat — set from provider-specific field
+  const legacyModel = provider === "openai" ? openaiTextModel : geminiTextModel;
+
   await db.run(
-    `UPDATE ai_settings
-     SET provider=?, model=?, temperature=?, max_tokens=?, system_prompt=?, updated_at=?
-     WHERE id=?`,
-    [provider, model || current.model, temperature, maxTokens, systemPrompt, nowIso(), current.id]
+    `UPDATE ai_settings SET
+      provider=?, model=?, temperature=?, max_tokens=?, system_prompt=?,
+      gemini_api_key=?, openai_api_key=?,
+      gemini_text_model=?, openai_text_model=?,
+      gemini_image_model=?, openai_image_model=?,
+      updated_at=? WHERE id=?`,
+    [provider, legacyModel, temperature, maxTokens, systemPrompt,
+     geminiKey, openaiKey, geminiTextModel, openaiTextModel, geminiImageModel, openaiImageModel,
+     nowIso(), current.id]
   );
 
   const updated = await getAiSettingsRow(db);
+  const { gemini_api_key: gak, openai_api_key: oak, ...safeUpdated } = updated;
   return ok(res, {
-    ...updated,
+    ...safeUpdated,
+    gemini_key_masked: maskKey(gak || process.env.GEMINI_API_KEY),
+    openai_key_masked: maskKey(oak || process.env.OPENAI_API_KEY),
     api_key_status: {
-      gemini: Boolean(process.env.GEMINI_API_KEY),
-      openai: Boolean(process.env.OPENAI_API_KEY)
+      gemini: Boolean(gak || process.env.GEMINI_API_KEY),
+      openai: Boolean(oak || process.env.OPENAI_API_KEY)
     }
   }, "Setările AI au fost salvate.");
 });
@@ -605,23 +631,43 @@ function resolveProviderAndModel(payload = {}, settings = {}) {
     ? providerFromPayload
     : (VALID_PROVIDERS.has(settings.provider) ? settings.provider : (process.env.AI_DEFAULT_PROVIDER || "gemini"));
 
-  const model = sanitizeText(
-    payload.model
-      || settings.model
-      || (provider === "openai" ? process.env.OPENAI_MODEL : process.env.GEMINI_MODEL)
-      || "",
-    120
-  );
+  // Choose the correct text model for this provider
+  const dbTextModel = provider === "openai"
+    ? (settings.openai_text_model || settings.model)
+    : (settings.gemini_text_model || settings.model);
+  const envModel = provider === "openai" ? process.env.OPENAI_MODEL : process.env.GEMINI_MODEL;
+  const model = sanitizeText(payload.model || dbTextModel || envModel || "", 120);
+
+  // Resolve API key: DB key takes precedence over env var
+  const dbKey = provider === "openai" ? settings.openai_api_key : settings.gemini_api_key;
+  const apiKey = dbKey || (provider === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY) || "";
 
   return {
     provider,
     model,
+    apiKey,
     temperature: Number.isFinite(Number(payload.temperature)) ? Number(payload.temperature) : Number(settings.temperature || 0.7),
     maxTokens: Number.isFinite(Number(payload.maxTokens || payload.max_tokens))
       ? Number(payload.maxTokens || payload.max_tokens)
       : Number(settings.max_tokens || 1200),
     systemPrompt: sanitizeNullable(payload.systemPrompt || payload.system_prompt || settings.system_prompt, 6000) || undefined
   };
+}
+
+function resolveImageConfig(payload = {}, settings = {}) {
+  const provider = VALID_PROVIDERS.has(sanitizeText(payload.provider || "", 20).toLowerCase())
+    ? sanitizeText(payload.provider, 20).toLowerCase()
+    : (settings.provider || "openai");
+
+  const dbImageModel = provider === "openai"
+    ? (settings.openai_image_model || "dall-e-3")
+    : (settings.gemini_image_model || "imagen-3.0-generate-002");
+  const model = sanitizeText(payload.model || dbImageModel, 120);
+
+  const dbKey = provider === "openai" ? settings.openai_api_key : settings.gemini_api_key;
+  const apiKey = dbKey || (provider === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY) || "";
+
+  return { provider, model, apiKey };
 }
 
 async function handleAiAction(req, res, actionFn, message) {
@@ -654,6 +700,19 @@ adminRouter.post("/ai/blog/fix-seo", aiLimiter, (req, res) =>
 adminRouter.post("/ai/blog/generate-image-prompt", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.generateImagePrompt, "Prompt imagine generat.")
 );
+adminRouter.post("/ai/blog/generate-image", aiLimiter, async (req, res) => {
+  try {
+    const db = await getDb();
+    const settings = await getAiSettingsRow(db);
+    const { provider, model, apiKey } = resolveImageConfig(req.body || {}, settings);
+    const prompt = sanitizeNullable(req.body.prompt, 2000);
+    if (!prompt) return fail(res, 400, "Prompt-ul pentru imagine este obligatoriu.", "MISSING_PROMPT");
+    const result = await aiService.generateImage({ provider, model, prompt, apiKey });
+    return ok(res, result, "Imaginea a fost generată.");
+  } catch (error) {
+    return fail(res, 400, error.message || "Eroare la generarea imaginii.", "AI_ERROR");
+  }
+});
 
 module.exports = {
   publicRouter,
