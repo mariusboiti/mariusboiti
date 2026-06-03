@@ -39,7 +39,18 @@
       return;
     }
 
-    // IntersectionObserver: play when ≥25% visible, pause when scrolled out
+    // IntersectionObserver 1: preload early — when shell is within 500px of viewport
+    if ('IntersectionObserver' in window) {
+      var preloadObserver = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) {
+          video.preload = 'auto';
+          preloadObserver.disconnect();
+        }
+      }, { rootMargin: '500px' });
+      preloadObserver.observe(shell);
+    }
+
+    // IntersectionObserver 2: play when ≥25% visible, pause when scrolled out
     if ('IntersectionObserver' in window) {
       var observer = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
@@ -57,6 +68,20 @@
       }, { threshold: 0.25 });
       observer.observe(shell);
     }
+
+    // Buffering state — show overlay when stalled, hide when ready
+    video.addEventListener('waiting', function () {
+      shell.classList.add('is-buffering');
+    });
+    video.addEventListener('stalled', function () {
+      shell.classList.add('is-buffering');
+    });
+    video.addEventListener('canplay', function () {
+      shell.classList.remove('is-buffering');
+    });
+    video.addEventListener('playing', function () {
+      shell.classList.remove('is-buffering');
+    });
 
     // Sync is-playing class and aria-label
     function syncState() {

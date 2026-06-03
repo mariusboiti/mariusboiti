@@ -4459,6 +4459,27 @@ body[data-public-page="blog"] .hero.hero-compact {
 .video-prezentare-shell .video-prezentare {
   display: block;
   cursor: pointer;
+  /* Force GPU compositing layer — prevents jank during CSS animations on parent */
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Buffering spinner overlay */
+.video-prezentare-shell.is-buffering::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: vprez-spin-fade 0.3s ease forwards;
+}
+@keyframes vprez-spin-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ── Custom Controls Overlay ────────────────────────────────────────────── */
