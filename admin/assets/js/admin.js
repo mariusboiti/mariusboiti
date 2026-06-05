@@ -866,6 +866,15 @@ async function initSettings() {
           <div class="field" style="grid-column:1/-1;"><label>Default meta description</label><textarea name="default_meta_description">${esc(data.default_meta_description || "")}</textarea></div>
         </div>
       </details>
+      <details class="accordion"><summary>Google Analytics</summary>
+        <div class="accordion-body grid grid-2">
+          <div class="field">
+            <label>GA4 Measurement ID</label>
+            <input name="ga_measurement_id" value="${esc(data.ga_measurement_id || "")}" placeholder="G-XXXXXXXXXX" />
+            <small>Găsești ID-ul în Google Analytics → Admin → Data Streams. Lasă gol pentru a dezactiva tracking-ul.</small>
+          </div>
+        </div>
+      </details>
       <div class="sticky-actions"><button class="btn btn-primary" type="submit">Save</button></div>
     </form>
   `;

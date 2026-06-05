@@ -32,7 +32,8 @@ adminRouter.put("/settings", async (req, res) => {
     logo_image: sanitizeNullable(req.body.logo_image, 500),
     favicon: sanitizeNullable(req.body.favicon, 500),
     default_meta_title: sanitizeNullable(req.body.default_meta_title, 255),
-    default_meta_description: sanitizeNullable(req.body.default_meta_description, 500)
+    default_meta_description: sanitizeNullable(req.body.default_meta_description, 500),
+    ga_measurement_id: sanitizeNullable(req.body.ga_measurement_id, 50)
   };
 
   const db = await getDb();
@@ -42,7 +43,7 @@ adminRouter.put("/settings", async (req, res) => {
     await db.run(
       `UPDATE site_settings SET
         site_name=?, tagline=?, email=?, phone=?, whatsapp=?, facebook_url=?, instagram_url=?, linkedin_url=?, youtube_url=?,
-        logo_text=?, logo_image=?, favicon=?, default_meta_title=?, default_meta_description=?, updated_at=?
+        logo_text=?, logo_image=?, favicon=?, default_meta_title=?, default_meta_description=?, ga_measurement_id=?, updated_at=?
        WHERE id=?`,
       [
         payload.site_name,
@@ -59,6 +60,7 @@ adminRouter.put("/settings", async (req, res) => {
         payload.favicon,
         payload.default_meta_title,
         payload.default_meta_description,
+        payload.ga_measurement_id,
         nowIso(),
         existing.id
       ]
@@ -66,8 +68,8 @@ adminRouter.put("/settings", async (req, res) => {
   } else {
     await db.run(
       `INSERT INTO site_settings
-      (site_name, tagline, email, phone, whatsapp, facebook_url, instagram_url, linkedin_url, youtube_url, logo_text, logo_image, favicon, default_meta_title, default_meta_description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (site_name, tagline, email, phone, whatsapp, facebook_url, instagram_url, linkedin_url, youtube_url, logo_text, logo_image, favicon, default_meta_title, default_meta_description, ga_measurement_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         payload.site_name,
         payload.tagline,
@@ -82,7 +84,8 @@ adminRouter.put("/settings", async (req, res) => {
         payload.logo_image,
         payload.favicon,
         payload.default_meta_title,
-        payload.default_meta_description
+        payload.default_meta_description,
+        payload.ga_measurement_id
       ]
     );
   }

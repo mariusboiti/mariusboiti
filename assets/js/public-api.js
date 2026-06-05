@@ -398,9 +398,26 @@
     }
   }
 
+  function injectGA4(measurementId) {
+    if (!measurementId || typeof document === "undefined") return;
+    if (document.querySelector('script[src*="googletagmanager.com/gtag"]')) return;
+    const s = document.createElement("script");
+    s.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+    s.async = true;
+    document.head.appendChild(s);
+    const i = document.createElement("script");
+    i.textContent = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${measurementId}');`;
+    document.head.appendChild(i);
+  }
+
   async function applySettings() {
     try {
       const settings = await fetchJson("/api/public/settings");
+
+      if (settings.ga_measurement_id) {
+        injectGA4(settings.ga_measurement_id);
+      }
+
       const brandName = settings.logo_text || settings.site_name;
       if (brandName) {
         document.querySelectorAll(".brand").forEach((brand) => {
