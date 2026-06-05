@@ -77,6 +77,10 @@ const PRICE_CALCULATOR_STEP_HELPERS = {
 let API_CALCULATOR_CONFIG = null;
 let API_CALCULATOR_SETTINGS = null;
 
+function escHtml(str) {
+  return String(str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function formatLei(value) {
   return `${Math.round(value).toLocaleString("ro-RO")} lei`;
 }
@@ -195,6 +199,22 @@ class PriceCalculator {
 
   attachEvents() {
     this.root.addEventListener("click", (event) => {
+      // Info-tooltip toggle — must be first to call preventDefault before label activates checkbox
+      const infoBtn = event.target.closest("[data-info-toggle]");
+      if (infoBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+        const targetId = infoBtn.dataset.infoToggle;
+        const descEl = document.getElementById(`calc-desc-${targetId}`);
+        if (descEl) {
+          const nowVisible = descEl.hidden;
+          descEl.hidden = !nowVisible;
+          infoBtn.setAttribute("aria-expanded", String(nowVisible));
+          infoBtn.classList.toggle("is-active", nowVisible);
+        }
+        return;
+      }
+
       const singleOption = event.target.closest("[data-single-option]");
       if (singleOption) {
         this.handleSingleSelection(singleOption.dataset.stepKey, singleOption.dataset.optionId);
@@ -314,6 +334,17 @@ class PriceCalculator {
       this.state[stepKey] = this.state[stepKey].filter((value) => value !== optionId);
     }
 
+    // Update visual state of the option directly (active class + checkmark)
+    const input = this.stepContent.querySelector(`[data-multi-option][data-option-id="${optionId}"]`);
+    if (input) {
+      const label = input.closest(".calc-option-check");
+      if (label) {
+        label.classList.toggle("active", checked);
+        const indicator = label.querySelector(".calc-option-indicator");
+        if (indicator) indicator.textContent = checked ? "✓" : "";
+      }
+    }
+
     this.renderResult();
   }
 
@@ -429,15 +460,21 @@ class PriceCalculator {
         if (isMulti) {
           const checked = Array.isArray(selectedValue) && selectedValue.includes(option.id) ? "checked" : "";
           const activeClass = checked ? "active" : "";
+          const desc = escHtml(option.description || "");
+          const infoId = `calc-desc-${option.id}`;
           return `
-            <label class="calc-option calc-option-check ${activeClass}">
-              <input type="checkbox" ${checked} data-multi-option data-step-key="${step.key}" data-option-id="${option.id}" />
-              <span class="calc-option-main">
-                <span class="calc-option-indicator" aria-hidden="true">${checked ? "✓" : ""}</span>
-                <span class="calc-option-label">${option.label}</span>
-              </span>
-              <span class="calc-option-price">+ ${formatLei(option.add)}</span>
-            </label>
+            <div class="calc-option-item">
+              <label class="calc-option calc-option-check ${activeClass}${desc ? " has-info" : ""}">
+                <input type="checkbox" ${checked} data-multi-option data-step-key="${step.key}" data-option-id="${option.id}" />
+                <span class="calc-option-main">
+                  <span class="calc-option-indicator" aria-hidden="true">${checked ? "✓" : ""}</span>
+                  <span class="calc-option-label">${option.label}</span>
+                </span>
+                <span class="calc-option-price">+ ${formatLei(option.add)}</span>
+              </label>
+              ${desc ? `<button type="button" class="calc-info-btn" data-info-toggle="${option.id}" aria-expanded="false" aria-controls="${infoId}" aria-label="Detalii despre această opțiune"><svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg></button>` : ""}
+              ${desc ? `<div class="calc-option-desc" id="${infoId}" hidden>${desc}</div>` : ""}
+            </div>
           `;
         }
 
@@ -658,7 +695,8 @@ function mapApiCalculatorOptions(options) {
       id: item.option_value || item.option_label.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
       label: item.option_label,
       add: Number(item.price_add || 0),
-      basePrice: Number(item.base_price || 0)
+      basePrice: Number(item.base_price || 0),
+      description: item.description || ""
     }));
   });
 

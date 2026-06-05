@@ -1820,17 +1820,27 @@ async function initCalculator() {
   }
   function editOption(o = null) {
     const m = modal({ title: o ? "Editează opțiune" : "Adaugă opțiune", subtitle: "Calculator option" });
+    const stepKeyOptions = [
+      { value: "site_type", label: "Tip site (site_type)" },
+      { value: "pages", label: "Pagini (pages)" },
+      { value: "content", label: "Conținut (content)" },
+      { value: "features", label: "Funcționalități extra (features)" },
+      { value: "design_level", label: "Nivel design (design_level)" },
+      { value: "deadline", label: "Termen (deadline)" }
+    ];
+    const stepKeySelect = stepKeyOptions.map((s) => `<option value="${s.value}" ${o?.step_key === s.value ? "selected" : ""}>${s.label}</option>`).join("");
     m.body.innerHTML = `
       <form class="grid grid-3">
-        <div class="field"><label>Step key</label><input name="step_key" value="${esc(o?.step_key || "")}" required /><small class="field-error" data-error-for="step_key"></small></div>
-        <div class="field"><label>Step title</label><input name="step_title" value="${esc(o?.step_title || "")}" /></div>
-        <div class="field"><label>Option label</label><input name="option_label" value="${esc(o?.option_label || "")}" required /><small class="field-error" data-error-for="option_label"></small></div>
-        <div class="field"><label>Option value</label><input name="option_value" value="${esc(o?.option_value || "")}" /></div>
-        <div class="field"><label>Type</label><select name="option_type"><option value="single" ${o?.option_type === "single" ? "selected" : ""}>single</option><option value="checkbox" ${o?.option_type === "checkbox" ? "selected" : ""}>checkbox</option></select></div>
-        <div class="field"><label>Sort</label><input type="number" name="sort_order" value="${o?.sort_order || 0}" /></div>
-        <div class="field"><label>Base price</label><input type="number" name="base_price" value="${o?.base_price || 0}" /></div>
-        <div class="field"><label>Price add</label><input type="number" name="price_add" value="${o?.price_add || 0}" /></div>
-        <div class="row" style="align-items:center;margin-top:1.8rem;"><label class="check-inline"><input type="checkbox" name="is_active" value="1" ${o?.is_active === 0 ? "" : "checked"} /> Active</label></div>
+        <div class="field"><label>Pas (step key)</label><select name="step_key" required><option value="">— alege —</option>${stepKeySelect}</select><small class="field-error" data-error-for="step_key"></small></div>
+        <div class="field"><label>Titlu pas</label><input name="step_title" value="${esc(o?.step_title || "")}" /></div>
+        <div class="field"><label>Etichetă opțiune</label><input name="option_label" value="${esc(o?.option_label || "")}" required /><small class="field-error" data-error-for="option_label"></small></div>
+        <div class="field"><label>Valoare internă (slug)</label><input name="option_value" value="${esc(o?.option_value || "")}" placeholder="ex: advanced-form" /></div>
+        <div class="field"><label>Tip</label><select name="option_type"><option value="single" ${o?.option_type !== "checkbox" ? "selected" : ""}>single (radio)</option><option value="checkbox" ${o?.option_type === "checkbox" ? "selected" : ""}>checkbox (multi)</option></select></div>
+        <div class="field"><label>Sort order</label><input type="number" name="sort_order" value="${o?.sort_order || 0}" /></div>
+        <div class="field"><label>Preț bază (lei)</label><input type="number" name="base_price" value="${o?.base_price || 0}" /></div>
+        <div class="field"><label>Preț adăugat (lei)</label><input type="number" name="price_add" value="${o?.price_add || 0}" /></div>
+        <div class="row" style="align-items:center;margin-top:0.5rem;"><label class="check-inline"><input type="checkbox" name="is_active" value="1" ${o?.is_active === 0 ? "" : "checked"} /> Activ</label></div>
+        <div class="field" style="grid-column:1/-1"><label>Descriere (apare la ⓘ în calculator)</label><textarea name="description" rows="3" placeholder="Explică pe scurt ce include această opțiune...">${esc(o?.description || "")}</textarea></div>
       </form>
     `;
     const form = $("form", m.body);

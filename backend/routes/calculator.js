@@ -31,7 +31,8 @@ adminRouter.post("/calculator/options", async (req, res) => {
     price_add: toInt(req.body.price_add, 0),
     base_price: toInt(req.body.base_price, 0),
     sort_order: toInt(req.body.sort_order, 0),
-    is_active: toBoolInt(req.body.is_active)
+    is_active: toBoolInt(req.body.is_active),
+    description: sanitizeNullable(req.body.description, 1000)
   };
 
   if (!payload.step_key || !payload.option_label) {
@@ -41,8 +42,8 @@ adminRouter.post("/calculator/options", async (req, res) => {
   const db = await getDb();
   const result = await db.run(
     `INSERT INTO calculator_options
-    (step_key, step_title, option_label, option_value, option_type, price_add, base_price, sort_order, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    (step_key, step_title, option_label, option_value, option_type, price_add, base_price, sort_order, is_active, description)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.step_key,
       payload.step_title,
@@ -52,7 +53,8 @@ adminRouter.post("/calculator/options", async (req, res) => {
       payload.price_add,
       payload.base_price,
       payload.sort_order,
-      payload.is_active
+      payload.is_active,
+      payload.description
     ]
   );
 
@@ -71,7 +73,8 @@ adminRouter.put("/calculator/options/:id", async (req, res) => {
     price_add: toInt(req.body.price_add, 0),
     base_price: toInt(req.body.base_price, 0),
     sort_order: toInt(req.body.sort_order, 0),
-    is_active: toBoolInt(req.body.is_active)
+    is_active: toBoolInt(req.body.is_active),
+    description: sanitizeNullable(req.body.description, 1000)
   };
 
   const db = await getDb();
@@ -80,7 +83,7 @@ adminRouter.put("/calculator/options/:id", async (req, res) => {
 
   await db.run(
     `UPDATE calculator_options SET
-      step_key=?, step_title=?, option_label=?, option_value=?, option_type=?, price_add=?, base_price=?, sort_order=?, is_active=?, updated_at=?
+      step_key=?, step_title=?, option_label=?, option_value=?, option_type=?, price_add=?, base_price=?, sort_order=?, is_active=?, description=?, updated_at=?
       WHERE id=?`,
     [
       payload.step_key,
@@ -92,6 +95,7 @@ adminRouter.put("/calculator/options/:id", async (req, res) => {
       payload.base_price,
       payload.sort_order,
       payload.is_active,
+      payload.description,
       nowIso(),
       id
     ]
