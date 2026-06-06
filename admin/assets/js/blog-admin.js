@@ -41,6 +41,46 @@
     return String(text || "").trim();
   }
 
+  function stringifyPretty(value) {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (_error) {
+      return String(value || "");
+    }
+  }
+
+  function setFormValue(form, fieldName, value) {
+    const field = form?.elements?.namedItem?.(fieldName);
+    if (!field) return;
+    field.value = String(value ?? "");
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function renderSeoAnalysis(summaryEl, recommendationsEl, rawEl, analysis) {
+    if (!summaryEl || !recommendationsEl || !rawEl) return;
+    if (!analysis || typeof analysis !== "object") {
+      summaryEl.innerHTML = `<div style="color:#94a3b8;">Salvează articolul și apasă <strong>Analyze SEO</strong> ca să vezi scorul și recomandările.</div>`;
+      recommendationsEl.innerHTML = "";
+      rawEl.textContent = "Salvează articolul și apasă Analyze SEO.";
+      return;
+    }
+
+    const score = Number(analysis.score || 0);
+    const summary = String(analysis.summary || "").trim();
+    const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : [];
+    summaryEl.innerHTML = `
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
+        <strong>Scor SEO: ${score}/100</strong>
+        <span style="color:${score >= 80 ? "#4ade80" : score >= 50 ? "#fbbf24" : "#fb7185"};">${score >= 80 ? "Bun" : score >= 50 ? "Aproape optimizat" : "Are nevoie de lucru"}</span>
+      </div>
+      <div style="margin-top:.35rem;color:#cbd5e1;">${esc(summary || "Analiza a fost generată.")}</div>
+    `;
+    recommendationsEl.innerHTML = recommendations.length
+      ? recommendations.map((item) => `<li>${esc(item)}</li>`).join("")
+      : `<li>Nu există recomandări suplimentare. Articolul arată bine din punct de vedere SEO.</li>`;
+    rawEl.textContent = stringifyPretty(analysis);
+  }
+
   function buildPostPayload(form) {
     const payload = formObject(form);
     payload.tags_json = readTags(payload.tags_json || "");
@@ -63,7 +103,7 @@
 
   // ─── GEMINI TEXT MODELS ────────────────────────────────────────
   const GEMINI_TEXT_MODELS = [
-    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash (recomandat)" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash (recomandat)" },
     { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
     { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
     { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
@@ -214,6 +254,8 @@
             </div>
             <div class="field" style="grid-column:1/-1;">
               <label>SEO Analysis</label>
+              <div id="seo-analysis-summary" style="padding:.8rem;border:1px solid var(--border);border-radius:10px;background:rgba(2,6,23,.28);margin-bottom:.7rem;"></div>
+              <ul id="seo-recommendations-list" style="margin:0 0 .7rem 1.1rem;padding:0;color:#dbeafe;font-size:.9rem;line-height:1.6;"></ul>
               <pre id="seo-analysis-box" style="margin:0;padding:.8rem;border:1px solid var(--border);border-radius:10px;background:rgba(2,6,23,.35);max-height:200px;overflow:auto;white-space:pre-wrap;font-size:.78rem;">${esc(post?.seo_analysis_json ? JSON.stringify(post.seo_analysis_json, null, 2) : "Salvează articolul și apasă Analyze SEO.")}</pre>
             </div>
           </div>
@@ -252,6 +294,7 @@
             <div class="row row-wrap" style="grid-column:1/-1;gap:.5rem;padding:.6rem;background:rgba(2,6,23,.25);border-radius:10px;">
               <button class="btn btn-secondary" type="button" data-ai-action="outline">📋 Outline</button>
               <button class="btn btn-secondary" type="button" data-ai-action="article">✍️ Generează articol</button>
+              <button class="btn btn-secondary" type="button" data-ai-action="title-excerpt">🪄 Titlu + excerpt</button>
               <button class="btn btn-secondary" type="button" data-ai-action="improve">💎 Îmbunătățește</button>
               <button class="btn btn-secondary" type="button" data-ai-action="seo">🔍 SEO metadata</button>
               <button class="btn btn-secondary" type="button" data-ai-action="fix-seo">🩹 Repară SEO</button>
@@ -269,6 +312,39 @@
               <button class="btn btn-secondary" type="button" data-ai-apply="append">⬇ Adaugă la final</button>
               <button class="btn btn-secondary" type="button" data-ai-apply="copy">📋 Copiază</button>
               <button class="btn btn-danger" type="button" data-ai-apply="clear">✕ Șterge rezultat</button>
+            </div>
+
+            <div class="grid grid-2" style="grid-column:1/-1;gap:.8rem;">
+              <div class="field">
+                <label>Titlu sugerat</label>
+                <input id="ai-title-box" readonly placeholder="Titlu generat aici..." style="background:rgba(2,6,23,.3);" />
+                <label style="margin-top:.8rem;">Excerpt sugerat</label>
+                <textarea id="ai-excerpt-box" rows="4" readonly placeholder="Excerpt generat aici..." style="background:rgba(2,6,23,.3);"></textarea>
+                <div class="row row-wrap" style="gap:.5rem;margin-top:.5rem;">
+                  <button class="btn btn-primary" type="button" data-ai-apply="title">Aplică titlul</button>
+                  <button class="btn btn-primary" type="button" data-ai-apply="excerpt">Aplică excerptul</button>
+                  <button class="btn btn-secondary" type="button" data-ai-apply="copy-title">Copiază titlul</button>
+                  <button class="btn btn-secondary" type="button" data-ai-apply="copy-excerpt">Copiază excerptul</button>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>SEO metadata sugerate</label>
+                <textarea id="ai-seo-box" rows="10" readonly placeholder="JSON SEO generat aici..." style="background:rgba(2,6,23,.3);"></textarea>
+                <div class="row row-wrap" style="gap:.5rem;margin-top:.5rem;">
+                  <button class="btn btn-primary" type="button" data-ai-apply="seo">Aplică în câmpuri</button>
+                  <button class="btn btn-secondary" type="button" data-ai-apply="copy-seo">Copiază JSON-ul</button>
+                </div>
+              </div>
+
+              <div class="field" style="grid-column:1/-1;">
+                <label>Prompturi imagine</label>
+                <textarea id="ai-image-prompts-box" rows="8" readonly placeholder="Primești 3 variante de prompt aici..." style="background:rgba(2,6,23,.3);"></textarea>
+                <div class="row row-wrap" style="gap:.5rem;margin-top:.5rem;">
+                  <button class="btn btn-primary" type="button" data-ai-apply="image-prompt">Trimite în tabul imagine</button>
+                  <button class="btn btn-secondary" type="button" data-ai-apply="copy-image-prompts">Copiază prompturile</button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -344,15 +420,64 @@
     // ── AI TEXT ACTIONS ───────────────────────────────
     const aiPreview = $("#ai-preview-box", m.body);
     const aiCharCount = $("#ai-char-count", m.body);
+    const aiTitleBox = $("#ai-title-box", m.body);
+    const aiExcerptBox = $("#ai-excerpt-box", m.body);
+    const aiSeoBox = $("#ai-seo-box", m.body);
+    const aiImagePromptsBox = $("#ai-image-prompts-box", m.body);
     const contentField = form.elements.namedItem("content");
     const seoAnalysisBox = $("#seo-analysis-box", m.body);
+    const seoAnalysisSummary = $("#seo-analysis-summary", m.body);
+    const seoRecommendationsList = $("#seo-recommendations-list", m.body);
+    let lastAiResult = null;
 
     aiPreview.addEventListener("input", () => {
       const len = aiPreview.value.length;
       aiCharCount.textContent = len > 0 ? `${len} caractere` : "";
     });
 
-    async function triggerAi(endpoint) {
+    renderSeoAnalysis(
+      seoAnalysisSummary,
+      seoRecommendationsList,
+      seoAnalysisBox,
+      post?.seo_analysis_json || null
+    );
+
+    function renderAiOutputs(action, result) {
+      const text = normalizeAiText(result?.text || "");
+
+      if (action === "title-excerpt") {
+        const title = normalizeAiText(result?.title || "");
+        const excerpt = normalizeAiText(result?.excerpt || "");
+        if (aiTitleBox) aiTitleBox.value = title;
+        if (aiExcerptBox) aiExcerptBox.value = excerpt;
+        aiPreview.value = [title, excerpt].filter(Boolean).join("\n\n") || text;
+      } else if (action === "seo") {
+        if (aiSeoBox) aiSeoBox.value = text || stringifyPretty(result);
+        if (result?.title) setFormValue(form, "title", result.title);
+        if (result?.seo_title) setFormValue(form, "seo_title", result.seo_title);
+        if (result?.seo_description) setFormValue(form, "seo_description", result.seo_description);
+        if (result?.excerpt) setFormValue(form, "excerpt", result.excerpt);
+        if (Array.isArray(result?.tags) && result.tags.length) {
+          setFormValue(form, "tags_json", result.tags.join(", "));
+        }
+        aiPreview.value = aiSeoBox.value;
+      } else if (action === "image-prompt") {
+        const prompts = Array.isArray(result?.prompts) ? result.prompts : [];
+        const promptText = result?.text || prompts.map((item, index) => `${index + 1}. ${item}`).join("\n\n") || "";
+        if (aiImagePromptsBox) aiImagePromptsBox.value = promptText;
+        const imgPromptInput = $("#img-prompt-input", m.body);
+        if (imgPromptInput) {
+          imgPromptInput.value = normalizeAiText(result?.primary_prompt || prompts[0] || promptText);
+        }
+        aiPreview.value = promptText;
+      } else {
+        aiPreview.value = text || stringifyPretty(result);
+      }
+
+      aiCharCount.textContent = aiPreview.value.length > 0 ? `${aiPreview.value.length} caractere` : "";
+    }
+
+    async function triggerAi(action, endpoint) {
       const payload = {
         provider: form.elements.namedItem("ai_provider")?.value || "gemini",
         tone: form.elements.namedItem("ai_tone")?.value || "",
@@ -367,28 +492,28 @@
       };
 
       const result = await apiX(endpoint, { method: "POST", body: JSON.stringify(payload) });
-      const text = normalizeAiText(result?.text || result?.data?.text || "");
-      aiPreview.value = text || JSON.stringify(result, null, 2);
-      aiCharCount.textContent = aiPreview.value.length > 0 ? `${aiPreview.value.length} caractere` : "";
-      toast("Răspuns AI primit ✓");
+      lastAiResult = { action, result };
+      renderAiOutputs(action, result);
+      toast("R?spuns AI primit ?");
     }
 
     $$("[data-ai-action]", m.body).forEach((btn) => {
       btn.addEventListener("click", async () => {
         const origText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = "Se generează…";
+        btn.textContent = "Se genereaz??";
         try {
           const action = btn.dataset.aiAction;
           const routes = {
             outline: "/api/admin/ai/blog/generate-outline",
             article: "/api/admin/ai/blog/generate-article",
+            "title-excerpt": "/api/admin/ai/blog/generate-title-excerpt",
             improve: "/api/admin/ai/blog/improve-content",
             seo: "/api/admin/ai/blog/generate-seo",
             "fix-seo": "/api/admin/ai/blog/fix-seo",
             "image-prompt": "/api/admin/ai/blog/generate-image-prompt"
           };
-          if (routes[action]) await triggerAi(routes[action]);
+          if (routes[action]) await triggerAi(action, routes[action]);
         } catch (error) {
           toast(error.message, "error");
         } finally {
@@ -402,19 +527,95 @@
       btn.addEventListener("click", async () => {
         const mode = btn.dataset.aiApply;
         const value = aiPreview.value || "";
-        if (!value && mode !== "clear") { toast("Nu există rezultat AI de aplicat.", "error"); return; }
-        if (mode === "replace") { contentField.value = value; toast("Conținut înlocuit."); }
-        if (mode === "append") { contentField.value = `${contentField.value || ""}\n\n${value}`.trim(); toast("Adăugat la final."); }
-        if (mode === "copy") {
-          await navigator.clipboard.writeText(value);
-          toast("Copiat în clipboard ✓");
+        if (!value && mode !== "clear") {
+          toast("Nu exist? rezultat AI de aplicat.", "error");
           return;
         }
-        if (mode === "clear") { aiPreview.value = ""; aiCharCount.textContent = ""; }
+
+        if (mode === "replace") {
+          contentField.value = value;
+          toast("Con?inut ?nlocuit.");
+          return;
+        }
+        if (mode === "append") {
+          contentField.value = `${contentField.value || ""}
+
+${value}`.trim();
+          toast("Ad?ugat la final.");
+          return;
+        }
+        if (mode === "copy") {
+          await navigator.clipboard.writeText(value);
+          toast("Copiat ?n clipboard ?");
+          return;
+        }
+        if (mode === "copy-title") {
+          await navigator.clipboard.writeText(aiTitleBox?.value || "");
+          toast("Titlul a fost copiat.");
+          return;
+        }
+        if (mode === "copy-excerpt") {
+          await navigator.clipboard.writeText(aiExcerptBox?.value || "");
+          toast("Excerptul a fost copiat.");
+          return;
+        }
+        if (mode === "copy-seo") {
+          await navigator.clipboard.writeText(aiSeoBox?.value || "");
+          toast("SEO JSON copiat.");
+          return;
+        }
+        if (mode === "copy-image-prompts") {
+          await navigator.clipboard.writeText(aiImagePromptsBox?.value || "");
+          toast("Prompturile au fost copiate.");
+          return;
+        }
+        if (mode === "title") {
+          if (aiTitleBox?.value) setFormValue(form, "title", aiTitleBox.value);
+          toast("Titlul a fost aplicat.");
+          return;
+        }
+        if (mode === "excerpt") {
+          if (aiExcerptBox?.value) setFormValue(form, "excerpt", aiExcerptBox.value);
+          toast("Excerptul a fost aplicat.");
+          return;
+        }
+        if (mode === "seo") {
+          if (lastAiResult?.action === "seo" && lastAiResult?.result) {
+            const seoResult = lastAiResult.result;
+            if (seoResult.seo_title) setFormValue(form, "seo_title", seoResult.seo_title);
+            if (seoResult.seo_description) setFormValue(form, "seo_description", seoResult.seo_description);
+            if (seoResult.excerpt) setFormValue(form, "excerpt", seoResult.excerpt);
+            if (Array.isArray(seoResult.tags) && seoResult.tags.length) {
+              setFormValue(form, "tags_json", seoResult.tags.join(", "));
+            }
+            toast("C?mpurile SEO au fost aplicate.");
+          } else {
+            toast("Genereaz? mai ?nt?i SEO metadata.", "error");
+          }
+          return;
+        }
+        if (mode === "image-prompt") {
+          const imgPromptInput = $("#img-prompt-input", m.body);
+          if (imgPromptInput) {
+            imgPromptInput.value = normalizeAiText(
+              lastAiResult?.action === "image-prompt"
+                ? lastAiResult?.result?.primary_prompt || lastAiResult?.result?.prompts?.[0] || aiImagePromptsBox?.value
+                : aiImagePromptsBox?.value
+            );
+            toast("Promptul a fost trimis ?n tabul imagine.");
+          }
+          return;
+        }
+        if (mode === "clear") {
+          aiPreview.value = "";
+          aiCharCount.textContent = "";
+          if (aiTitleBox) aiTitleBox.value = "";
+          if (aiExcerptBox) aiExcerptBox.value = "";
+          if (aiSeoBox) aiSeoBox.value = "";
+          if (aiImagePromptsBox) aiImagePromptsBox.value = "";
+        }
       });
     });
-
-    // ── IMAGE GENERATION ──────────────────────────────
     const imgProviderSelect = $("#img-provider-select", m.body);
     const imgModelSelect = $("#img-model-select", m.body);
     const imgPromptInput = $("#img-prompt-input", m.body);
@@ -547,7 +748,7 @@
       if (!post?.id) { toast("Salvează articolul înainte de Analyze SEO.", "error"); return; }
       try {
         const analysis = await apiX(`/api/admin/blog/posts/${post.id}/analyze-seo`, { method: "POST" });
-        seoAnalysisBox.textContent = JSON.stringify(analysis, null, 2);
+        renderSeoAnalysis(seoAnalysisSummary, seoRecommendationsList, seoAnalysisBox, analysis);
         toast("Scor SEO actualizat ✓");
       } catch (error) {
         toast(error.message, "error");
@@ -846,7 +1047,7 @@
             <div class="field">
               <label>Model text</label>
               <select id="gemini-text-model" name="gemini_text_model">
-                ${modelOptions(GEMINI_TEXT_MODELS, "gemini-2.0-flash")}
+                ${modelOptions(GEMINI_TEXT_MODELS, "gemini-2.5-flash")}
               </select>
             </div>
             <div class="field">
@@ -978,7 +1179,7 @@
         }
       };
 
-      setSelect("gemini-text-model", settings.gemini_text_model || "gemini-2.0-flash");
+      setSelect("gemini-text-model", settings.gemini_text_model || "gemini-2.5-flash");
       setSelect("openai-text-model", settings.openai_text_model || "gpt-4o-mini");
       setSelect("gemini-image-model", settings.gemini_image_model || "imagen-3.0-generate-002");
       setSelect("openai-image-model", settings.openai_image_model || "dall-e-3");
@@ -1004,7 +1205,7 @@
           temperature: parseFloat($("#ai-temperature", mount)?.value) || 0.7,
           max_tokens: parseInt($("#ai-max-tokens", mount)?.value, 10) || 1200,
           system_prompt: $("#ai-system-prompt", mount)?.value || "",
-          gemini_text_model: $("#gemini-text-model", mount)?.value || "gemini-2.0-flash",
+          gemini_text_model: $("#gemini-text-model", mount)?.value || "gemini-2.5-flash",
           openai_text_model: $("#openai-text-model", mount)?.value || "gpt-4o-mini",
           gemini_image_model: $("#gemini-image-model", mount)?.value || "imagen-3.0-generate-002",
           openai_image_model: $("#openai-image-model", mount)?.value || "dall-e-3"

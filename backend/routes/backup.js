@@ -322,7 +322,7 @@ adminRouter.post("/backup/import", async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           row.provider || "gemini",
-          row.model || "gemini-1.5-flash",
+          row.model || "gemini-2.5-flash",
           Number(row.temperature || 0.7),
           Number(row.max_tokens || 1200),
           row.system_prompt || null,

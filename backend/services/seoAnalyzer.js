@@ -50,12 +50,20 @@ function analyzeBlogPost(post) {
   const keywordOccurrences = countOccurrences(plainContent, keyword);
 
   let score = 0;
+  const recommendations = [];
+
+  function collectRecommendation(message) {
+    if (message && !recommendations.includes(message)) {
+      recommendations.push(message);
+    }
+  }
 
   if (keyword) {
     addCheck(checks, "focus_keyword_exists", "Focus keyword setat", "pass", 5);
     score += 5;
   } else {
     addCheck(checks, "focus_keyword_exists", "Focus keyword setat", "fail", 0, "Adaugă un focus keyword principal.");
+    collectRecommendation("Adaugă un focus keyword principal.");
   }
 
   if (keyword && title.toLowerCase().includes(keyword)) {
@@ -64,6 +72,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "keyword_in_title", "Cuvântul cheie apare în titlu", keyword ? "warning" : "fail", 2, "Include focus keyword în titlu.");
     score += keyword ? 2 : 0;
+    if (keyword) collectRecommendation("Include focus keyword în titlu.");
   }
 
   if (keyword && stripHtml(firstParagraph).toLowerCase().includes(keyword)) {
@@ -72,6 +81,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "keyword_in_first_paragraph", "Keyword în primul paragraf", keyword ? "warning" : "fail", 2, "Folosește focus keyword în primul paragraf.");
     score += keyword ? 2 : 0;
+    if (keyword) collectRecommendation("Folosește focus keyword în primul paragraf.");
   }
 
   if (keyword && headings.some((h) => h.toLowerCase().includes(keyword))) {
@@ -80,6 +90,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "keyword_in_heading", "Keyword în H2/H3", keyword ? "warning" : "fail", 2, "Include keyword în cel puțin un subtitlu.");
     score += keyword ? 2 : 0;
+    if (keyword) collectRecommendation("Include keyword în cel puțin un subtitlu H2/H3.");
   }
 
   if (keyword && seoTitle.toLowerCase().includes(keyword)) {
@@ -88,6 +99,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "keyword_in_meta_title", "Keyword în SEO title", "warning", 1, "Include focus keyword în SEO title.");
     score += 1;
+    if (keyword) collectRecommendation("Include focus keyword în SEO title.");
   }
 
   if (keyword && seoDescription.toLowerCase().includes(keyword)) {
@@ -96,6 +108,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "keyword_in_meta_description", "Keyword în meta description", "warning", 1, "Include focus keyword în meta description.");
     score += 1;
+    if (keyword) collectRecommendation("Include focus keyword în meta description.");
   }
 
   if (keywordOccurrences >= 3) {
@@ -104,8 +117,10 @@ function analyzeBlogPost(post) {
   } else if (keywordOccurrences > 0) {
     addCheck(checks, "keyword_density", "Keyword apare natural în conținut", "warning", 3, "Folosește keyword de câteva ori, natural.");
     score += 3;
+    collectRecommendation("Folosește keyword-ul de câteva ori, natural, în conținut.");
   } else {
     addCheck(checks, "keyword_density", "Keyword apare natural în conținut", "fail", 0, "Include keyword în conținut.");
+    collectRecommendation("Include keyword-ul în conținut.");
   }
 
   const titleLength = title.length;
@@ -115,8 +130,10 @@ function analyzeBlogPost(post) {
   } else if (titleLength > 0) {
     addCheck(checks, "title_length", "Titlu cu lungime bună", "warning", 2, "Recomandat: 35-75 caractere.");
     score += 2;
+    collectRecommendation("Ajustează titlul la aproximativ 35-75 caractere.");
   } else {
     addCheck(checks, "title_length", "Titlu cu lungime bună", "fail", 0, "Titlul este obligatoriu.");
+    collectRecommendation("Adaugă un titlu clar pentru articol.");
   }
 
   if (seoTitle.length >= 45 && seoTitle.length <= 60) {
@@ -125,8 +142,10 @@ function analyzeBlogPost(post) {
   } else if (seoTitle.length > 0) {
     addCheck(checks, "seo_title_length", "SEO title optim (45-60)", "warning", 3, "Ajustează SEO title la 45-60 caractere.");
     score += 3;
+    collectRecommendation("Ajustează SEO title la 45-60 caractere.");
   } else {
     addCheck(checks, "seo_title_length", "SEO title optim (45-60)", "fail", 0, "Adaugă SEO title.");
+    collectRecommendation("Adaugă un SEO title.");
   }
 
   if (seoDescription.length >= 120 && seoDescription.length <= 160) {
@@ -135,8 +154,10 @@ function analyzeBlogPost(post) {
   } else if (seoDescription.length > 0) {
     addCheck(checks, "seo_description_length", "Meta descriere optimă (120-160)", "warning", 3, "Ajustează meta descrierea la 120-160 caractere.");
     score += 3;
+    collectRecommendation("Ajustează meta descrierea la 120-160 caractere.");
   } else {
     addCheck(checks, "seo_description_length", "Meta descriere optimă (120-160)", "fail", 0, "Adaugă meta descriere.");
+    collectRecommendation("Adaugă o meta descriere.");
   }
 
   const slugValid = slug && slug === slug.toLowerCase() && /^[a-z0-9-]+$/.test(slug);
@@ -145,6 +166,7 @@ function analyzeBlogPost(post) {
     score += 5;
   } else {
     addCheck(checks, "slug_valid", "Slug valid (lowercase fără diacritice)", "fail", 0, "Slug-ul trebuie să fie lowercase, fără caractere speciale.");
+    collectRecommendation("Fă slug-ul lowercase, fără diacritice și fără caractere speciale.");
   }
 
   if (!keyword || !slug || slug.includes(keyword.replace(/\s+/g, "-"))) {
@@ -153,6 +175,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "slug_contains_keyword", "Slug conține keyword", "warning", 1, "Dacă se poate, include keyword în slug.");
     score += 1;
+    collectRecommendation("Dacă se poate, include keyword-ul în slug.");
   }
 
   if (wordCount >= 900) {
@@ -161,11 +184,14 @@ function analyzeBlogPost(post) {
   } else if (wordCount >= 600) {
     addCheck(checks, "content_length", "Conținut suficient (minim 600 cuvinte)", "warning", 7, "Pentru SEO mai bun, încearcă 900+ cuvinte.");
     score += 7;
+    collectRecommendation("Pentru SEO mai bun, extinde articolul la 900+ cuvinte.");
   } else if (wordCount > 0) {
     addCheck(checks, "content_length", "Conținut suficient (minim 600 cuvinte)", "fail", 2, "Conținutul este prea scurt pentru un articol SEO.");
     score += 2;
+    collectRecommendation("Conținutul este prea scurt. Țintește minim 600 cuvinte, ideal 900+.");
   } else {
     addCheck(checks, "content_length", "Conținut suficient (minim 600 cuvinte)", "fail", 0, "Adaugă conținut în articol.");
+    collectRecommendation("Adaugă conținut în articol.");
   }
 
   if (headings.length >= 2) {
@@ -174,6 +200,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "headings", "Structură cu H2/H3", "warning", 1, "Adaugă subtitluri H2/H3.");
     score += 1;
+    collectRecommendation("Adaugă subtitluri H2/H3.");
   }
 
   if (hasList) {
@@ -182,6 +209,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "lists", "Conținutul include liste", "warning", 1, "Adaugă o listă bullet sau numerotată.");
     score += 1;
+    collectRecommendation("Adaugă o listă bullet sau numerotată.");
   }
 
   if (hasFaqSection(content)) {
@@ -190,6 +218,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "faq_section", "Secțiune FAQ prezentă", "warning", 1, "Adaugă o secțiune FAQ unde este relevant.");
     score += 1;
+    collectRecommendation("Adaugă o secțiune FAQ relevantă.");
   }
 
   if (internalLinkCount >= 1) {
@@ -198,6 +227,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "internal_links", "Link intern prezent", "warning", 1, "Adaugă cel puțin un link intern.");
     score += 1;
+    collectRecommendation("Adaugă cel puțin un link intern.");
   }
 
   if (externalLinkCount >= 1) {
@@ -206,6 +236,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "external_links", "Link extern prezent", "warning", 1, "Poți adăuga un link extern relevant.");
     score += 1;
+    collectRecommendation("Adaugă un link extern relevant, dacă are sens.");
   }
 
   const hasImage = Boolean(post.featured_image);
@@ -216,6 +247,7 @@ function analyzeBlogPost(post) {
   } else {
     addCheck(checks, "featured_image", "Imagine principală setată", "warning", 1, "Adaugă imagine principală.");
     score += 1;
+    collectRecommendation("Adaugă o imagine principală.");
   }
   if (hasImage && hasAlt) {
     addCheck(checks, "featured_image_alt", "ALT text pentru imagine", "pass", 3);
@@ -223,6 +255,7 @@ function analyzeBlogPost(post) {
   } else if (hasImage) {
     addCheck(checks, "featured_image_alt", "ALT text pentru imagine", "warning", 1, "Adaugă alt text relevant pentru imagine.");
     score += 1;
+    collectRecommendation("Adaugă alt text relevant pentru imagine.");
   } else {
     addCheck(checks, "featured_image_alt", "ALT text pentru imagine", "fail", 0, "ALT text va fi util după ce adaugi imagine.");
   }
@@ -233,8 +266,10 @@ function analyzeBlogPost(post) {
   } else if (paragraphCount > 0) {
     addCheck(checks, "readability", "Lizibilitate bună (paragrafe echilibrate)", "warning", 2, "Scurtează paragrafele foarte lungi.");
     score += 2;
+    collectRecommendation("Scurtează paragrafele foarte lungi.");
   } else {
     addCheck(checks, "readability", "Lizibilitate bună (paragrafe echilibrate)", "fail", 0, "Nu există paragrafe de analizat.");
+    collectRecommendation("Adaugă paragrafe clare și bine separate.");
   }
 
   if (score > 100) score = 100;
@@ -250,6 +285,7 @@ function analyzeBlogPost(post) {
     score,
     checks,
     summary,
+    recommendations,
     stats: {
       wordCount,
       headingCount: headings.length,

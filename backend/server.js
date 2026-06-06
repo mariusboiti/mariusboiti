@@ -209,7 +209,7 @@ app.get("/robots.txt", (_req, res) => {
 app.get("/sitemap.xml", async (_req, res) => {
   try {
     const db = await getDb();
-    const staticUrls = ["/", "/servicii", "/portofoliu", "/calculator-pret", "/proces", "/blog", "/contact", "/despre", "/web-design-cluj"];
+    const staticUrls = ["/", "/servicii", "/portofoliu", "/calculator-pret", "/proces", "/blog", "/contact", "/despre", "/web-design-cluj", "/servicii/brand-identitate", "/servicii/continut-copywriting", "/servicii/servicii-ai", "/servicii/audit-optimizare", "/servicii/mentenanta-suport"];
     const projects = await db.all("SELECT slug, updated_at FROM portfolio_projects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
     const articles = await db.all("SELECT slug, updated_at, published_at FROM blog_posts WHERE status = 'published' ORDER BY COALESCE(published_at, created_at) DESC, id DESC");
 

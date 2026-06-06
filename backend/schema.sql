@@ -256,6 +256,12 @@ CREATE TABLE IF NOT EXISTS ai_settings (
   temperature REAL NOT NULL DEFAULT 0.7,
   max_tokens INTEGER NOT NULL DEFAULT 1200,
   system_prompt TEXT,
+  gemini_api_key TEXT,
+  openai_api_key TEXT,
+  gemini_text_model TEXT,
+  openai_text_model TEXT,
+  gemini_image_model TEXT,
+  openai_image_model TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

@@ -692,7 +692,7 @@ async function seedDatabase() {
   const aiProvider = process.env.AI_DEFAULT_PROVIDER === "openai" ? "openai" : "gemini";
   const aiModel = aiProvider === "openai"
     ? (process.env.OPENAI_MODEL || "gpt-4o-mini")
-    : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
+    : (process.env.GEMINI_MODEL || "gemini-2.5-flash");
   await db.run(
     `INSERT INTO ai_settings (provider, model, temperature, max_tokens, system_prompt, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,

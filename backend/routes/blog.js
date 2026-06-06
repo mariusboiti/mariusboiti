@@ -11,6 +11,10 @@ const adminRouter = express.Router();
 
 const VALID_STATUSES = new Set(["draft", "published", "scheduled", "archived"]);
 const VALID_PROVIDERS = new Set(["openai", "gemini"]);
+const DEFAULT_GEMINI_TEXT_MODEL = "gemini-2.5-flash";
+const DEFAULT_OPENAI_TEXT_MODEL = "gpt-4o-mini";
+const DEFAULT_GEMINI_IMAGE_MODEL = "imagen-3.0-generate-002";
+const DEFAULT_OPENAI_IMAGE_MODEL = "dall-e-3";
 
 const aiLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -113,8 +117,8 @@ async function getAiSettingsRow(db) {
   if (!row) {
     const provider = VALID_PROVIDERS.has(process.env.AI_DEFAULT_PROVIDER) ? process.env.AI_DEFAULT_PROVIDER : "gemini";
     const model = provider === "openai"
-      ? (process.env.OPENAI_MODEL || "gpt-4o-mini")
-      : (process.env.GEMINI_MODEL || "gemini-2.0-flash");
+      ? (process.env.OPENAI_MODEL || DEFAULT_OPENAI_TEXT_MODEL)
+      : (process.env.GEMINI_MODEL || DEFAULT_GEMINI_TEXT_MODEL);
     await db.run(
       `INSERT INTO ai_settings (provider, model, temperature, max_tokens, system_prompt, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -122,13 +126,21 @@ async function getAiSettingsRow(db) {
     );
     row = await db.get("SELECT * FROM ai_settings ORDER BY id ASC LIMIT 1");
   }
-  // Provide defaults for new columns added via migration
+  const normalizedGeminiTextModel = row.gemini_text_model === "gemini-2.0-flash"
+    ? DEFAULT_GEMINI_TEXT_MODEL
+    : (row.gemini_text_model || DEFAULT_GEMINI_TEXT_MODEL);
+  const normalizedOpenaiTextModel = row.openai_text_model || DEFAULT_OPENAI_TEXT_MODEL;
+  const normalizedGeminiImageModel = row.gemini_image_model || DEFAULT_GEMINI_IMAGE_MODEL;
+  const normalizedOpenaiImageModel = row.openai_image_model || DEFAULT_OPENAI_IMAGE_MODEL;
+  const normalizedProvider = VALID_PROVIDERS.has(row.provider) ? row.provider : "gemini";
   return {
-    gemini_text_model: "gemini-2.0-flash",
-    openai_text_model: "gpt-4o-mini",
-    gemini_image_model: "imagen-3.0-generate-002",
-    openai_image_model: "dall-e-3",
-    ...row
+    ...row,
+    provider: normalizedProvider,
+    model: normalizedProvider === "openai" ? normalizedOpenaiTextModel : normalizedGeminiTextModel,
+    gemini_text_model: normalizedGeminiTextModel,
+    openai_text_model: normalizedOpenaiTextModel,
+    gemini_image_model: normalizedGeminiImageModel,
+    openai_image_model: normalizedOpenaiImageModel
   };
 }
 
@@ -584,10 +596,10 @@ adminRouter.put("/ai/settings", async (req, res) => {
   const systemPrompt = sanitizeNullable(req.body.system_prompt, 6000);
 
   // Model fields
-  const geminiTextModel = sanitizeText(req.body.gemini_text_model || current.gemini_text_model || "gemini-2.0-flash", 120);
-  const openaiTextModel = sanitizeText(req.body.openai_text_model || current.openai_text_model || "gpt-4o-mini", 120);
-  const geminiImageModel = sanitizeText(req.body.gemini_image_model || current.gemini_image_model || "imagen-3.0-generate-002", 120);
-  const openaiImageModel = sanitizeText(req.body.openai_image_model || current.openai_image_model || "dall-e-3", 120);
+  const geminiTextModel = sanitizeText(req.body.gemini_text_model || current.gemini_text_model || DEFAULT_GEMINI_TEXT_MODEL, 120);
+  const openaiTextModel = sanitizeText(req.body.openai_text_model || current.openai_text_model || DEFAULT_OPENAI_TEXT_MODEL, 120);
+  const geminiImageModel = sanitizeText(req.body.gemini_image_model || current.gemini_image_model || DEFAULT_GEMINI_IMAGE_MODEL, 120);
+  const openaiImageModel = sanitizeText(req.body.openai_image_model || current.openai_image_model || DEFAULT_OPENAI_IMAGE_MODEL, 120);
 
   // API keys — only update if a non-placeholder value is sent
   const newGeminiKey = sanitizeText(req.body.gemini_api_key || "", 500);
@@ -633,10 +645,13 @@ function resolveProviderAndModel(payload = {}, settings = {}) {
 
   // Choose the correct text model for this provider
   const dbTextModel = provider === "openai"
-    ? (settings.openai_text_model || settings.model)
-    : (settings.gemini_text_model || settings.model);
+    ? (settings.openai_text_model || settings.model || DEFAULT_OPENAI_TEXT_MODEL)
+    : (settings.gemini_text_model || settings.model || DEFAULT_GEMINI_TEXT_MODEL);
   const envModel = provider === "openai" ? process.env.OPENAI_MODEL : process.env.GEMINI_MODEL;
-  const model = sanitizeText(payload.model || dbTextModel || envModel || "", 120);
+  let model = sanitizeText(payload.model || dbTextModel || envModel || "", 120);
+  if (provider === "gemini" && model === "gemini-2.0-flash") {
+    model = DEFAULT_GEMINI_TEXT_MODEL;
+  }
 
   // Resolve API key: DB key takes precedence over env var
   const dbKey = provider === "openai" ? settings.openai_api_key : settings.gemini_api_key;
@@ -678,12 +693,16 @@ async function handleAiAction(req, res, actionFn, message) {
     const result = await actionFn({ ...(req.body || {}), ...config });
     return ok(res, result, message);
   } catch (error) {
-    return fail(res, 400, error.message || "A apărut o eroare la procesarea AI.", "AI_ERROR");
+    const status = Number(error?.statusCode) || 400;
+    return fail(res, status, error.message || "A apărut o eroare la procesarea AI.", "AI_ERROR");
   }
 }
 
 adminRouter.post("/ai/blog/generate-outline", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.generateBlogOutline, "Outline generat.")
+);
+adminRouter.post("/ai/blog/generate-title-excerpt", aiLimiter, (req, res) =>
+  handleAiAction(req, res, aiService.generateBlogTitleExcerpt, "Titlu și excerpt generate.")
 );
 adminRouter.post("/ai/blog/generate-article", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.generateBlogArticle, "Articol generat.")

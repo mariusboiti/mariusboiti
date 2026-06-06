@@ -43,6 +43,20 @@ async function runMigrations(db) {
     await db.exec("ALTER TABLE leads ADD COLUMN budget_confirmed INTEGER NOT NULL DEFAULT 0");
   }
 
+  const aiSettingsColumns = await db.all("PRAGMA table_info(ai_settings)");
+  const ensureAiSettingsColumn = async (name, sqlType) => {
+    if (!aiSettingsColumns.some((column) => column.name === name)) {
+      await db.exec(`ALTER TABLE ai_settings ADD COLUMN ${name} ${sqlType}`);
+    }
+  };
+
+  await ensureAiSettingsColumn("gemini_api_key", "TEXT");
+  await ensureAiSettingsColumn("openai_api_key", "TEXT");
+  await ensureAiSettingsColumn("gemini_text_model", "TEXT");
+  await ensureAiSettingsColumn("openai_text_model", "TEXT");
+  await ensureAiSettingsColumn("gemini_image_model", "TEXT");
+  await ensureAiSettingsColumn("openai_image_model", "TEXT");
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS blog_categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,10 +104,16 @@ async function runMigrations(db) {
     CREATE TABLE IF NOT EXISTS ai_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       provider TEXT NOT NULL DEFAULT 'gemini' CHECK(provider IN ('openai', 'gemini')),
-      model TEXT NOT NULL DEFAULT 'gemini-1.5-flash',
+      model TEXT NOT NULL DEFAULT 'gemini-2.5-flash',
       temperature REAL NOT NULL DEFAULT 0.7,
       max_tokens INTEGER NOT NULL DEFAULT 1200,
       system_prompt TEXT,
+      gemini_api_key TEXT,
+      openai_api_key TEXT,
+      gemini_text_model TEXT,
+      openai_text_model TEXT,
+      gemini_image_model TEXT,
+      openai_image_model TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
