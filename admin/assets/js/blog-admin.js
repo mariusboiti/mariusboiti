@@ -403,15 +403,25 @@
     // Setup image pickers
     setupImagePickers(m.body);
 
-    // Pre-populate existing image picker values (so preview shows)
-    if (post?.featured_image) {
-      const inp = m.body.querySelector("[data-image-picker='featured_image'] input[data-image-url]");
-      if (inp) { inp.value = post.featured_image; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    // Pre-populate existing image picker values (so preview shows for existing posts)
+    function seedImagePicker(pickerName, url) {
+      if (!url) return;
+      const wrap = m.body.querySelector(`[data-image-picker='${pickerName}']`);
+      if (!wrap) return;
+      const inp = wrap.querySelector("[data-image-url]");
+      if (inp) inp.value = url;
+      // Directly update the preview DOM (same logic as setupImagePickers' refresh)
+      const previewWrap = wrap.querySelector("[data-preview-wrap]");
+      const previewImg = wrap.querySelector("[data-preview]");
+      if (previewWrap && previewImg) {
+        previewImg.src = url;
+        previewWrap.hidden = false;
+      }
+      // Also dispatch input so any additional listeners fire
+      if (inp) inp.dispatchEvent(new Event("input", { bubbles: true }));
     }
-    if (post?.og_image) {
-      const inp = m.body.querySelector("[data-image-picker='og_image'] input[data-image-url]");
-      if (inp) { inp.value = post.og_image; inp.dispatchEvent(new Event("input", { bubbles: true })); }
-    }
+    seedImagePicker("featured_image", post?.featured_image);
+    seedImagePicker("og_image", post?.og_image);
 
     const form = $("#blog-post-form", m.body);
     registerSlugAuto(form, "title", "slug");
@@ -468,7 +478,8 @@
 
       const origText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = "⏳…";
+      btn.textContent = "⏳ Generez…";
+      let applied = false;
       try {
         const payload = {
           provider: form.elements.namedItem("ai_provider")?.value || "gemini",
@@ -482,18 +493,28 @@
         });
         const fixed = normalizeAiText(result?.text || "");
         if (fixed) {
+          applied = true;
           contentField.value = fixed;
-          const contentTabBtn = m.body.querySelector("[data-tab='content']");
-          if (contentTabBtn) contentTabBtn.click();
-          toast("Fix SEO aplicat ✓");
+          // Mark this recommendation as applied — visual feedback stays on SEO tab
+          const li = btn.closest("li");
+          if (li) {
+            li.style.opacity = "0.45";
+            li.style.textDecoration = "line-through";
+          }
+          btn.textContent = "✅ Aplicat";
+          btn.style.textDecoration = "none";
+          btn.style.color = "#4ade80";
+          toast("Fix aplicat în conținut ✓ — salvează articolul și apasă Analyze SEO pentru scor actualizat.");
         } else {
           toast("AI nu a returnat conținut.", "error");
         }
       } catch (error) {
         toast(error.message, "error");
       } finally {
-        btn.disabled = false;
-        btn.textContent = origText;
+        if (!applied) {
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
       }
     });
 
@@ -762,22 +783,16 @@ ${value}`.trim();
     if (useFeaturedBtn) {
       useFeaturedBtn.addEventListener("click", () => {
         if (!lastGeneratedUrl) return;
-        // Try to set in image picker input, otherwise create a fallback
-        const pickers = $$("[data-image-picker-name]", m.body);
-        let set = false;
-        pickers.forEach((picker) => {
-          if (picker.dataset.imagePickerName === "featured_image") {
-            const input = picker.closest("[data-image-picker]")?.querySelector("input[type='hidden']")
-              || form.elements.namedItem("featured_image");
-            if (input) { input.value = lastGeneratedUrl; set = true; }
-          }
-        });
-        // Fallback: set the named input directly
-        if (!set) {
-          const imgInput = form.elements.namedItem("featured_image");
-          if (imgInput) { imgInput.value = lastGeneratedUrl; set = true; }
+        // Use the picker input directly so refresh() triggers and the preview updates
+        const pickerInput = m.body.querySelector("[data-image-picker='featured_image'] input[data-image-url]")
+          || form.elements.namedItem("featured_image");
+        if (pickerInput) {
+          pickerInput.value = lastGeneratedUrl;
+          pickerInput.dispatchEvent(new Event("input", { bubbles: true }));
+          toast("Imagine setată ca featured ✓");
+        } else {
+          toast("Nu am putut seta imaginea — copiaz-o manual.", "error");
         }
-        toast(set ? "Imagine setată ca featured ✓" : "Nu am putut seta imaginea — copiaz-o manual.", set ? "success" : "error");
       });
     }
 
@@ -785,8 +800,15 @@ ${value}`.trim();
     if (useOgBtn) {
       useOgBtn.addEventListener("click", () => {
         if (!lastGeneratedUrl) return;
-        const ogInput = form.elements.namedItem("og_image");
-        if (ogInput) { ogInput.value = lastGeneratedUrl; toast("Imagine setată ca OG image ✓"); }
+        const pickerInput = m.body.querySelector("[data-image-picker='og_image'] input[data-image-url]")
+          || form.elements.namedItem("og_image");
+        if (pickerInput) {
+          pickerInput.value = lastGeneratedUrl;
+          pickerInput.dispatchEvent(new Event("input", { bubbles: true }));
+          toast("Imagine setată ca OG image ✓");
+        } else {
+          toast("Nu am putut seta imaginea — copiaz-o manual.", "error");
+        }
       });
     }
 
