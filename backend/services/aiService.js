@@ -214,7 +214,9 @@ async function generateText({
     throw new Error(msg);
   }
 
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("\n") || "";
+  // Join Gemini text parts directly (empty separator). Gemini can split a single
+  // word across parts; joining with "\n" would corrupt it (e.g. "af" + "acerea").
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("") || "";
   const finishReason = data?.candidates?.[0]?.finishReason || data?.candidates?.[0]?.finish_reason || null;
   return {
     provider: normalizedProvider,
@@ -754,12 +756,15 @@ async function generateImagePrompt(input = {}) {
 // Strip wrapping quotes / markdown that AI sometimes adds around short field values
 function cleanFieldValue(text) {
   let v = String(text || "").trim();
-  // Take first non-empty line for short single-value fields
-  v = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] || "";
+  // Collapse all newlines/whitespace into single spaces — these are single-line
+  // fields, and the whole value must be kept (never truncate to the first line).
+  v = v.replace(/\s+/g, " ").trim();
   // Remove surrounding quotes
   v = v.replace(/^["'`]+|["'`]+$/g, "").trim();
+  // Strip a leading label the model sometimes prepends ("Meta description:", etc.)
+  v = v.replace(/^(meta\s*description|descriere|seo\s*title|titlu|alt\s*text)\s*:\s*/i, "").trim();
   // Remove leading markdown bullets / numbering
-  v = v.replace(/^[-*\d.)\s]+/, "").trim();
+  v = v.replace(/^[-*\d.)]+\s*/, "").trim();
   return v;
 }
 
