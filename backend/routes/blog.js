@@ -716,6 +716,9 @@ adminRouter.post("/ai/blog/generate-seo", aiLimiter, (req, res) =>
 adminRouter.post("/ai/blog/fix-seo", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.fixSeoIssues, "Propuneri SEO generate.")
 );
+adminRouter.post("/ai/blog/fix-seo-item", aiLimiter, (req, res) =>
+  handleAiAction(req, res, aiService.fixSeoIssueItem, "Fix SEO item aplicat.")
+);
 adminRouter.post("/ai/blog/generate-image-prompt", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.generateImagePrompt, "Prompt imagine generat.")
 );

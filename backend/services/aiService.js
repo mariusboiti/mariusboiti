@@ -79,7 +79,7 @@ function normalizeStringList(value) {
 function looksIncomplete(text) {
   const cleaned = String(text || "").trim();
   if (!cleaned) return true;
-  if (/[.:;,\-—]$/.test(cleaned)) return true;
+  if (/[:;,\-—]$/.test(cleaned)) return true;
   return !/[.!?…]["')\]]?$/.test(cleaned);
 }
 
@@ -290,8 +290,48 @@ async function generateImage({
     return { provider: normalizedProvider, model: finalModel, url: publicUrl, revisedPrompt };
   }
 
-  // Imagen 3 via Google Generative AI API
-  const finalModel = model || "imagen-3.0-generate-002";
+  // Determine final model name
+  const finalModel = sanitizeText(model || "imagen-3.0-generate-002", 120);
+
+  // Gemini native image generation (gemini-* models use generateContent with responseModalities)
+  if (finalModel.startsWith("gemini-")) {
+    const geminiImgResponse = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(finalModel)}:generateContent?key=${encodeURIComponent(resolvedKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: cleanPrompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] }
+        })
+      }
+    );
+
+    const geminiImgData = await geminiImgResponse.json();
+    if (!geminiImgResponse.ok) {
+      const msg = geminiImgData?.error?.message || "Gemini image generation failed.";
+      throw new Error(msg);
+    }
+
+    const parts = geminiImgData?.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p) => p.inlineData);
+    if (!imagePart?.inlineData?.data) throw new Error("Gemini nu a returnat date pentru imagine.");
+
+    const mimeType = imagePart.inlineData.mimeType || "image/jpeg";
+    const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png";
+    const imgFilename = `ai-img-${Date.now()}.${ext}`;
+    const imgFilePath = path.join(uploadDir, imgFilename);
+    fs.writeFileSync(imgFilePath, Buffer.from(imagePart.inlineData.data, "base64"));
+
+    return {
+      provider: normalizedProvider,
+      model: finalModel,
+      url: `/uploads/ai-images/${imgFilename}`,
+      revisedPrompt: cleanPrompt
+    };
+  }
+
+  // Imagen 3 via Google Generative AI API (imagen-* models)
   const imagenResponse = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(finalModel)}:generateImages?key=${encodeURIComponent(resolvedKey)}`,
     {
@@ -597,7 +637,8 @@ async function improveBlogContent(input = {}) {
   return generateText({
     ...extractPromptConfig(input),
     systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-    prompt
+    prompt,
+    maxTokens: 4000
   });
 }
 
@@ -668,7 +709,8 @@ async function fixSeoIssues(input = {}) {
   return generateText({
     ...extractPromptConfig(input),
     systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-    prompt
+    prompt,
+    maxTokens: 4000
   });
 }
 
@@ -709,6 +751,32 @@ async function generateImagePrompt(input = {}) {
   };
 }
 
+async function fixSeoIssueItem(input = {}) {
+  const recommendation = String(input.recommendation || "").trim();
+  if (!recommendation) throw new Error("Recomandarea SEO este obligatorie.");
+
+  const prompt = [
+    "Aplică fix-ul SEO indicat în articolul de mai jos.",
+    "Modifică MINIMAL conținutul pentru a rezolva DOAR problema indicată.",
+    "Returnează articolul COMPLET, corectat, în română.",
+    "Nu adăuga explicații sau comentarii — returnează DOAR conținutul articolului.",
+    "",
+    `Fix necesar: ${recommendation}`,
+    "",
+    `Focus keyword: ${input.focusKeyword || "-"}`,
+    "",
+    "Articol curent:",
+    String(input.content || "")
+  ].join("\n");
+
+  return generateText({
+    ...extractPromptConfig(input),
+    systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT,
+    prompt,
+    maxTokens: 4000
+  });
+}
+
 module.exports = {
   generateText,
   generateImage,
@@ -718,5 +786,6 @@ module.exports = {
   improveBlogContent,
   generateSeoMetadata,
   fixSeoIssues,
+  fixSeoIssueItem,
   generateImagePrompt
 };

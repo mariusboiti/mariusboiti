@@ -56,18 +56,20 @@
     field.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
-  function renderSeoAnalysis(summaryEl, recommendationsEl, rawEl, analysis) {
+  function renderSeoAnalysis(summaryEl, recommendationsEl, rawEl, analysis, onRecs) {
     if (!summaryEl || !recommendationsEl || !rawEl) return;
     if (!analysis || typeof analysis !== "object") {
       summaryEl.innerHTML = `<div style="color:#94a3b8;">Salvează articolul și apasă <strong>Analyze SEO</strong> ca să vezi scorul și recomandările.</div>`;
       recommendationsEl.innerHTML = "";
       rawEl.textContent = "Salvează articolul și apasă Analyze SEO.";
+      if (typeof onRecs === "function") onRecs([]);
       return;
     }
 
     const score = Number(analysis.score || 0);
     const summary = String(analysis.summary || "").trim();
     const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : [];
+    if (typeof onRecs === "function") onRecs(recommendations);
     summaryEl.innerHTML = `
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
         <strong>Scor SEO: ${score}/100</strong>
@@ -76,7 +78,7 @@
       <div style="margin-top:.35rem;color:#cbd5e1;">${esc(summary || "Analiza a fost generată.")}</div>
     `;
     recommendationsEl.innerHTML = recommendations.length
-      ? recommendations.map((item) => `<li>${esc(item)}</li>`).join("")
+      ? recommendations.map((item, idx) => `<li style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.4rem;"><span>${esc(item)}</span><button class="btn btn-secondary" type="button" data-fix-seo-idx="${idx}" style="flex-shrink:0;padding:.2rem .5rem;font-size:.75rem;line-height:1.4;" title="Aplică fix cu AI">🩹 Fix</button></li>`).join("")
       : `<li>Nu există recomandări suplimentare. Articolul arată bine din punct de vedere SEO.</li>`;
     rawEl.textContent = stringifyPretty(analysis);
   }
@@ -111,7 +113,9 @@
   ];
   const GEMINI_IMAGE_MODELS = [
     { value: "imagen-3.0-generate-002", label: "Imagen 3 (recomandat)" },
-    { value: "imagen-3.0-fast-generate-001", label: "Imagen 3 Fast" }
+    { value: "imagen-3.0-fast-generate-001", label: "Imagen 3 Fast" },
+    { value: "gemini-3.1-flash-image", label: "Gemini Flash Image (nano banana simplu)" },
+    { value: "gemini-3-pro-image", label: "Gemini Pro Image (nano banana pro)" }
   ];
   const OPENAI_TEXT_MODELS = [
     { value: "gpt-4o-mini", label: "GPT-4o Mini (recomandat)" },
@@ -185,16 +189,15 @@
               <label>Taguri <small style="color:#94a3b8;">(separate prin virgulă)</small></label>
               <input name="tags_json" value="${esc(tags)}" placeholder="seo, web design, antreprenori…" />
             </div>
-            <div class="field" style="grid-column:1/-1;">
-              <label>Imagine principală</label>
-              <div style="display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;">
-                <div style="flex:1;min-width:200px;">${imagePickerMarkup("featured_image", "", ".jpg,.jpeg,.png,.webp,.svg").replace('<div class="field">', '').replace('</div>', '')}</div>
-                <div class="field" style="flex:1;min-width:200px;">
-                  <label>Alt text imagine</label>
-                  <input name="featured_image_alt" value="${esc(post?.featured_image_alt || "")}" placeholder="Descriere imagine pentru SEO…" />
-                </div>
+            <div style="grid-column:1/-1;display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;">
+              <div style="flex:1;min-width:200px;">
+                ${imagePickerMarkup("featured_image", "Imagine principală", ".jpg,.jpeg,.png,.webp,.svg")}
+                <button class="btn btn-secondary" type="button" id="gen-featured-img-btn" style="width:100%;margin-top:.35rem;font-size:.82rem;">🎨 Generează cu AI</button>
               </div>
-              ${post?.featured_image ? `<div style="margin-top:.5rem;"><img src="${esc(post.featured_image)}" style="max-height:80px;border-radius:8px;object-fit:cover;" /></div>` : ""}
+              <div class="field" style="flex:1;min-width:200px;">
+                <label>Alt text imagine</label>
+                <input name="featured_image_alt" value="${esc(post?.featured_image_alt || "")}" placeholder="Descriere imagine pentru SEO…" />
+              </div>
             </div>
             <div class="field">
               <label>Status publicare</label>
@@ -243,7 +246,10 @@
               <label>OG Description</label>
               <textarea name="og_description" rows="2" placeholder="Descriere pentru social media…">${esc(post?.og_description || "")}</textarea>
             </div>
-            ${imagePickerMarkup("og_image", "OG Image (1200×630)", ".jpg,.jpeg,.png,.webp,.svg")}
+            <div style="grid-column:1/-1;">
+              ${imagePickerMarkup("og_image", "OG Image (1200×630)", ".jpg,.jpeg,.png,.webp,.svg")}
+              <button class="btn btn-secondary" type="button" id="gen-og-img-btn" style="width:100%;margin-top:.35rem;font-size:.82rem;">🎨 Generează OG image cu AI</button>
+            </div>
             <div class="field">
               <label>Canonical URL</label>
               <input name="canonical_url" value="${esc(post?.canonical_url || "")}" placeholder="https://mariusboiti.ro/blog/…" />
@@ -395,11 +401,17 @@
     `;
 
     // Setup image pickers
-    const featuredImageField = m.body.querySelector("[data-image-picker-field='featured_image']");
-    if (!featuredImageField) {
-      // image picker markup was inlined without wrapper — setup manually
-    }
     setupImagePickers(m.body);
+
+    // Pre-populate existing image picker values (so preview shows)
+    if (post?.featured_image) {
+      const inp = m.body.querySelector("[data-image-picker='featured_image'] input[data-image-url]");
+      if (inp) { inp.value = post.featured_image; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
+    if (post?.og_image) {
+      const inp = m.body.querySelector("[data-image-picker='og_image'] input[data-image-url]");
+      if (inp) { inp.value = post.og_image; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+    }
 
     const form = $("#blog-post-form", m.body);
     registerSlugAuto(form, "title", "slug");
@@ -429,6 +441,9 @@
     const seoAnalysisSummary = $("#seo-analysis-summary", m.body);
     const seoRecommendationsList = $("#seo-recommendations-list", m.body);
     let lastAiResult = null;
+    let lastSeoRecommendations = [];
+
+    function onSeoRecs(recs) { lastSeoRecommendations = Array.isArray(recs) ? recs : []; }
 
     aiPreview.addEventListener("input", () => {
       const len = aiPreview.value.length;
@@ -439,8 +454,48 @@
       seoAnalysisSummary,
       seoRecommendationsList,
       seoAnalysisBox,
-      post?.seo_analysis_json || null
+      post?.seo_analysis_json || null,
+      onSeoRecs
     );
+
+    // ── FIX CU AI — per-recommendation delegation ─────────────────
+    seoRecommendationsList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-fix-seo-idx]");
+      if (!btn) return;
+      const idx = Number(btn.dataset.fixSeoIdx);
+      const recommendation = lastSeoRecommendations[idx];
+      if (!recommendation) return;
+
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "⏳…";
+      try {
+        const payload = {
+          provider: form.elements.namedItem("ai_provider")?.value || "gemini",
+          recommendation,
+          focusKeyword: form.elements.namedItem("ai_focus_keyword")?.value || form.elements.namedItem("focus_keyword")?.value || "",
+          content: contentField?.value || ""
+        };
+        const result = await apiX("/api/admin/ai/blog/fix-seo-item", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const fixed = normalizeAiText(result?.text || "");
+        if (fixed) {
+          contentField.value = fixed;
+          const contentTabBtn = m.body.querySelector("[data-tab='content']");
+          if (contentTabBtn) contentTabBtn.click();
+          toast("Fix SEO aplicat ✓");
+        } else {
+          toast("AI nu a returnat conținut.", "error");
+        }
+      } catch (error) {
+        toast(error.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    });
 
     function renderAiOutputs(action, result) {
       const text = normalizeAiText(result?.text || "");
@@ -735,6 +790,28 @@ ${value}`.trim();
       });
     }
 
+    // ── AI GENERATE IMAGE SHORTCUT BUTTONS ──────────────────────────
+    function switchToImageTab() {
+      const imageTabBtn = m.body.querySelector("[data-tab='image']");
+      if (imageTabBtn) imageTabBtn.click();
+    }
+
+    const genFeaturedImgBtn = $("#gen-featured-img-btn", m.body);
+    if (genFeaturedImgBtn) {
+      genFeaturedImgBtn.addEventListener("click", () => {
+        switchToImageTab();
+        if (suggestPromptBtn) suggestPromptBtn.click();
+      });
+    }
+
+    const genOgImgBtn = $("#gen-og-img-btn", m.body);
+    if (genOgImgBtn) {
+      genOgImgBtn.addEventListener("click", () => {
+        switchToImageTab();
+        if (suggestPromptBtn) suggestPromptBtn.click();
+      });
+    }
+
     // ── FOOTER BUTTONS ────────────────────────────────
     m.foot.innerHTML = `
       <button class="btn btn-secondary" type="button" id="analyze-seo-btn">🔍 Analyze SEO</button>
@@ -748,7 +825,7 @@ ${value}`.trim();
       if (!post?.id) { toast("Salvează articolul înainte de Analyze SEO.", "error"); return; }
       try {
         const analysis = await apiX(`/api/admin/blog/posts/${post.id}/analyze-seo`, { method: "POST" });
-        renderSeoAnalysis(seoAnalysisSummary, seoRecommendationsList, seoAnalysisBox, analysis);
+        renderSeoAnalysis(seoAnalysisSummary, seoRecommendationsList, seoAnalysisBox, analysis, onSeoRecs);
         toast("Scor SEO actualizat ✓");
       } catch (error) {
         toast(error.message, "error");
