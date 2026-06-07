@@ -377,6 +377,7 @@ adminRouter.post("/blog/posts", async (req, res) => {
   const publishedAt = payload.status === "published"
     ? (payload.published_at || nowIso())
     : payload.published_at;
+  const analysis = analyzeBlogPost({ ...payload, slug });
 
   const result = await db.run(
     `INSERT INTO blog_posts
@@ -400,8 +401,8 @@ adminRouter.post("/blog/posts", async (req, res) => {
       payload.og_image,
       payload.canonical_url,
       payload.robots,
-      null,
-      null,
+      analysis.score,
+      stringifyJsonField(analysis),
       readingTime,
       publishedAt,
       nowIso(),
@@ -449,10 +450,11 @@ adminRouter.put("/blog/posts/:id", async (req, res) => {
   const publishedAt = payload.status === "published"
     ? (payload.published_at || existing.published_at || nowIso())
     : payload.published_at;
+  const analysis = analyzeBlogPost({ ...payload, slug });
 
   await db.run(
     `UPDATE blog_posts SET
-      title=?, slug=?, excerpt=?, content=?, status=?, featured_image=?, featured_image_alt=?, category_id=?, tags_json=?, focus_keyword=?, seo_title=?, seo_description=?, og_title=?, og_description=?, og_image=?, canonical_url=?, robots=?, reading_time_minutes=?, published_at=?, updated_at=?
+      title=?, slug=?, excerpt=?, content=?, status=?, featured_image=?, featured_image_alt=?, category_id=?, tags_json=?, focus_keyword=?, seo_title=?, seo_description=?, og_title=?, og_description=?, og_image=?, canonical_url=?, robots=?, seo_score=?, seo_analysis_json=?, reading_time_minutes=?, published_at=?, updated_at=?
      WHERE id=?`,
     [
       payload.title,
@@ -472,6 +474,8 @@ adminRouter.put("/blog/posts/:id", async (req, res) => {
       payload.og_image,
       payload.canonical_url,
       payload.robots,
+      analysis.score,
+      stringifyJsonField(analysis),
       readingTime,
       publishedAt,
       nowIso(),
@@ -719,6 +723,27 @@ adminRouter.post("/ai/blog/fix-seo", aiLimiter, (req, res) =>
 adminRouter.post("/ai/blog/fix-seo-item", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.fixSeoIssueItem, "Fix SEO item aplicat.")
 );
+// Stateless live analysis — runs on posted form data, no DB write, works for unsaved posts
+adminRouter.post("/ai/blog/analyze", (req, res) => {
+  try {
+    const b = req.body || {};
+    const postLike = {
+      title: b.title,
+      slug: b.slug,
+      excerpt: b.excerpt,
+      content: b.content,
+      focus_keyword: b.focus_keyword ?? b.focusKeyword,
+      seo_title: b.seo_title ?? b.seoTitle,
+      seo_description: b.seo_description ?? b.seoDescription,
+      featured_image: b.featured_image ?? b.featuredImage,
+      featured_image_alt: b.featured_image_alt ?? b.featuredImageAlt
+    };
+    const analysis = analyzeBlogPost(postLike);
+    return ok(res, analysis, "Analiză SEO live generată.");
+  } catch (error) {
+    return fail(res, 400, error.message || "Eroare la analiza SEO.", "AI_ERROR");
+  }
+});
 adminRouter.post("/ai/blog/generate-image-prompt", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.generateImagePrompt, "Prompt imagine generat.")
 );

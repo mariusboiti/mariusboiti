@@ -56,20 +56,42 @@
     field.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
+  // Normalize recommendations to objects {id, target, message} (back-compat with string[])
+  function normalizeRecommendations(analysis) {
+    if (Array.isArray(analysis?.recommendationItems) && analysis.recommendationItems.length) {
+      return analysis.recommendationItems.map((it, i) => ({
+        id: it.id || `rec_${i}`,
+        target: it.target || "content",
+        message: String(it.message || "")
+      }));
+    }
+    return (Array.isArray(analysis?.recommendations) ? analysis.recommendations : []).map((m, i) => ({
+      id: `rec_${i}`,
+      target: "content",
+      message: String(m || "")
+    }));
+  }
+
+  function fixButtonLabel(target) {
+    if (target === "featured_image") return "🖼️ Generează";
+    if (target === "focus_keyword") return "✍️ Manual";
+    return "🩹 Fix";
+  }
+
   function renderSeoAnalysis(summaryEl, recommendationsEl, rawEl, analysis, onRecs) {
     if (!summaryEl || !recommendationsEl || !rawEl) return;
     if (!analysis || typeof analysis !== "object") {
-      summaryEl.innerHTML = `<div style="color:#94a3b8;">Salvează articolul și apasă <strong>Analyze SEO</strong> ca să vezi scorul și recomandările.</div>`;
+      summaryEl.innerHTML = `<div style="color:#94a3b8;">Apasă <strong>Analyze SEO</strong> ca să vezi scorul și recomandările.</div>`;
       recommendationsEl.innerHTML = "";
-      rawEl.textContent = "Salvează articolul și apasă Analyze SEO.";
+      rawEl.textContent = "Apasă Analyze SEO.";
       if (typeof onRecs === "function") onRecs([]);
       return;
     }
 
     const score = Number(analysis.score || 0);
     const summary = String(analysis.summary || "").trim();
-    const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : [];
-    if (typeof onRecs === "function") onRecs(recommendations);
+    const items = normalizeRecommendations(analysis);
+    if (typeof onRecs === "function") onRecs(items);
     summaryEl.innerHTML = `
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;flex-wrap:wrap;">
         <strong>Scor SEO: ${score}/100</strong>
@@ -77,9 +99,9 @@
       </div>
       <div style="margin-top:.35rem;color:#cbd5e1;">${esc(summary || "Analiza a fost generată.")}</div>
     `;
-    recommendationsEl.innerHTML = recommendations.length
-      ? recommendations.map((item, idx) => `<li style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.4rem;"><span>${esc(item)}</span><button class="btn btn-secondary" type="button" data-fix-seo-idx="${idx}" style="flex-shrink:0;padding:.2rem .5rem;font-size:.75rem;line-height:1.4;" title="Aplică fix cu AI">🩹 Fix</button></li>`).join("")
-      : `<li>Nu există recomandări suplimentare. Articolul arată bine din punct de vedere SEO.</li>`;
+    recommendationsEl.innerHTML = items.length
+      ? items.map((item, idx) => `<li data-rec-idx="${idx}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.4rem;list-style:none;"><span>${esc(item.message)}</span><button class="btn btn-secondary" type="button" data-fix-seo-idx="${idx}" data-fix-target="${esc(item.target)}" style="flex-shrink:0;padding:.2rem .5rem;font-size:.75rem;line-height:1.4;white-space:nowrap;" title="Aplică fix cu AI">${fixButtonLabel(item.target)}</button></li>`).join("")
+      : `<li style="list-style:none;color:#4ade80;">✅ Nu există recomandări. Articolul arată bine din punct de vedere SEO.</li>`;
     rawEl.textContent = stringifyPretty(analysis);
   }
 
@@ -455,6 +477,32 @@
 
     function onSeoRecs(recs) { lastSeoRecommendations = Array.isArray(recs) ? recs : []; }
 
+    // Build a post-like object from the live form for SEO analysis
+    function collectFormForAnalysis() {
+      const get = (name) => form.elements.namedItem(name)?.value || "";
+      return {
+        title: get("title"),
+        slug: get("slug"),
+        excerpt: get("excerpt"),
+        content: contentField?.value || "",
+        focus_keyword: get("focus_keyword") || get("ai_focus_keyword"),
+        seo_title: get("seo_title"),
+        seo_description: get("seo_description"),
+        featured_image: get("featured_image"),
+        featured_image_alt: get("featured_image_alt")
+      };
+    }
+
+    // Re-run live SEO analysis on current form state and re-render the panel
+    async function reanalyzeLive() {
+      const analysis = await apiX("/api/admin/ai/blog/analyze", {
+        method: "POST",
+        body: JSON.stringify(collectFormForAnalysis())
+      });
+      renderSeoAnalysis(seoAnalysisSummary, seoRecommendationsList, seoAnalysisBox, analysis, onSeoRecs);
+      return analysis;
+    }
+
     aiPreview.addEventListener("input", () => {
       const len = aiPreview.value.length;
       aiCharCount.textContent = len > 0 ? `${len} caractere` : "";
@@ -468,53 +516,80 @@
       onSeoRecs
     );
 
-    // ── FIX CU AI — per-recommendation delegation ─────────────────
+    // ── FIX CU AI — per-recommendation, target-aware + auto re-analyze ──
     seoRecommendationsList.addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-fix-seo-idx]");
       if (!btn) return;
       const idx = Number(btn.dataset.fixSeoIdx);
-      const recommendation = lastSeoRecommendations[idx];
-      if (!recommendation) return;
+      const rec = lastSeoRecommendations[idx];
+      if (!rec) return;
+      const target = btn.dataset.fixTarget || rec.target || "content";
+
+      // focus_keyword can't be auto-generated — guide the user
+      if (target === "focus_keyword") {
+        toast("Setează manual un focus keyword în câmpul „Focus keyword”, apoi reanalizează.", "error");
+        const fk = form.elements.namedItem("focus_keyword");
+        if (fk) fk.focus();
+        return;
+      }
 
       const origText = btn.textContent;
       btn.disabled = true;
-      btn.textContent = "⏳ Generez…";
-      let applied = false;
+      btn.textContent = "⏳…";
       try {
+        const get = (name) => form.elements.namedItem(name)?.value || "";
         const payload = {
           provider: form.elements.namedItem("ai_provider")?.value || "gemini",
-          recommendation,
-          focusKeyword: form.elements.namedItem("ai_focus_keyword")?.value || form.elements.namedItem("focus_keyword")?.value || "",
+          recommendation: rec.message || "",
+          target,
+          focusKeyword: get("focus_keyword") || get("ai_focus_keyword"),
+          title: get("title"),
+          slug: get("slug"),
+          excerpt: get("excerpt"),
+          seo_title: get("seo_title"),
           content: contentField?.value || ""
         };
         const result = await apiX("/api/admin/ai/blog/fix-seo-item", {
           method: "POST",
           body: JSON.stringify(payload)
         });
-        const fixed = normalizeAiText(result?.text || "");
-        if (fixed) {
-          applied = true;
-          contentField.value = fixed;
-          // Mark this recommendation as applied — visual feedback stays on SEO tab
-          const li = btn.closest("li");
-          if (li) {
-            li.style.opacity = "0.45";
-            li.style.textDecoration = "line-through";
+
+        // Manual targets (e.g. featured_image) — redirect to the image generator
+        if (result?.manual) {
+          if (target === "featured_image") {
+            const imageTabBtn = m.body.querySelector("[data-tab='image']");
+            if (imageTabBtn) imageTabBtn.click();
+            if (typeof suggestPromptBtn !== "undefined" && suggestPromptBtn) suggestPromptBtn.click();
           }
-          btn.textContent = "✅ Aplicat";
-          btn.style.textDecoration = "none";
-          btn.style.color = "#4ade80";
-          toast("Fix aplicat în conținut ✓ — salvează articolul și apasă Analyze SEO pentru scor actualizat.");
-        } else {
-          toast("AI nu a returnat conținut.", "error");
-        }
-      } catch (error) {
-        toast(error.message, "error");
-      } finally {
-        if (!applied) {
+          toast(result.message || "Această problemă trebuie rezolvată manual.", "error");
           btn.disabled = false;
           btn.textContent = origText;
+          return;
         }
+
+        const field = result?.field || target;
+        const value = result?.value != null ? String(result.value) : normalizeAiText(result?.text || "");
+        if (!value) {
+          toast("AI nu a returnat un rezultat.", "error");
+          btn.disabled = false;
+          btn.textContent = origText;
+          return;
+        }
+
+        // Apply to the right field
+        if (field === "content") {
+          contentField.value = value;
+        } else {
+          setFormValue(form, field, value);
+        }
+
+        toast("Fix aplicat ✓ — reanalizez…");
+        // Auto re-analyze: the fixed suggestion disappears, score updates live
+        await reanalyzeLive();
+      } catch (error) {
+        toast(error.message, "error");
+        btn.disabled = false;
+        btn.textContent = origText;
       }
     });
 
@@ -844,13 +919,19 @@ ${value}`.trim();
     $("[data-cancel]", m.foot).addEventListener("click", m.close);
 
     $("#analyze-seo-btn", m.foot).addEventListener("click", async () => {
-      if (!post?.id) { toast("Salvează articolul înainte de Analyze SEO.", "error"); return; }
+      const btn = $("#analyze-seo-btn", m.foot);
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "🔍 Analizez…";
       try {
-        const analysis = await apiX(`/api/admin/blog/posts/${post.id}/analyze-seo`, { method: "POST" });
-        renderSeoAnalysis(seoAnalysisSummary, seoRecommendationsList, seoAnalysisBox, analysis, onSeoRecs);
+        // Live analysis on the current form state — works even before first save
+        await reanalyzeLive();
         toast("Scor SEO actualizat ✓");
       } catch (error) {
         toast(error.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
       }
     });
 

@@ -1,6 +1,6 @@
 const path = require("path");
 const fs = require("fs");
-const { sanitizeText } = require("../utils/security");
+const { sanitizeText, slugify } = require("../utils/security");
 
 function ensureFetch() {
   if (typeof fetch !== "function") {
@@ -751,30 +751,134 @@ async function generateImagePrompt(input = {}) {
   };
 }
 
+// Strip wrapping quotes / markdown that AI sometimes adds around short field values
+function cleanFieldValue(text) {
+  let v = String(text || "").trim();
+  // Take first non-empty line for short single-value fields
+  v = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)[0] || "";
+  // Remove surrounding quotes
+  v = v.replace(/^["'`]+|["'`]+$/g, "").trim();
+  // Remove leading markdown bullets / numbering
+  v = v.replace(/^[-*\d.)\s]+/, "").trim();
+  return v;
+}
+
 async function fixSeoIssueItem(input = {}) {
   const recommendation = String(input.recommendation || "").trim();
   if (!recommendation) throw new Error("Recomandarea SEO este obligatorie.");
 
-  const prompt = [
-    "Aplică fix-ul SEO indicat în articolul de mai jos.",
-    "Modifică MINIMAL conținutul pentru a rezolva DOAR problema indicată.",
-    "Returnează articolul COMPLET, corectat, în română.",
-    "Nu adăuga explicații sau comentarii — returnează DOAR conținutul articolului.",
-    "",
-    `Fix necesar: ${recommendation}`,
-    "",
-    `Focus keyword: ${input.focusKeyword || "-"}`,
-    "",
-    "Articol curent:",
-    String(input.content || "")
-  ].join("\n");
-
-  return generateText({
+  const target = String(input.target || "content").trim();
+  const focusKeyword = String(input.focusKeyword || "").trim();
+  const title = String(input.title || "").trim();
+  const aiCfg = {
     ...extractPromptConfig(input),
-    systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-    prompt,
+    systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT
+  };
+
+  // ── Deterministic / manual targets (no AI text-rewrite of content) ──
+  if (target === "slug") {
+    const base = title || focusKeyword || String(input.slug || "").trim();
+    const value = slugify(base);
+    return { field: "slug", value, text: value, manual: false };
+  }
+
+  if (target === "featured_image" || target === "focus_keyword") {
+    const message = target === "featured_image"
+      ? "Această problemă nu poate fi rezolvată automat din text. Folosește butonul „Generează cu AI” de la imaginea principală."
+      : "Setează un focus keyword în câmpul dedicat înainte de a rula fix-urile SEO.";
+    return { field: target, value: null, text: "", manual: true, message };
+  }
+
+  // ── Field-level AI fixes (title / seo_title / seo_description / alt) ──
+  if (target === "title") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează un singur titlu de articol în română, optimizat SEO.",
+        "Cerințe: 35-70 caractere, include în mod natural focus keyword-ul, clar și atractiv.",
+        "Returnează DOAR titlul, fără ghilimele, fără explicații, pe o singură linie.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu actual: ${title || "-"}`,
+        `Context articol: ${String(input.content || "").replace(/<[^>]+>/g, " ").slice(0, 400)}`
+      ].join("\n"),
+      maxTokens: 200
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "title", value, text: value };
+  }
+
+  if (target === "seo_title") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează un singur SEO title în română pentru meta tag-ul <title>.",
+        "Cerințe STRICTE: între 45 și 60 de caractere, include focus keyword-ul, fără ghilimele.",
+        "Returnează DOAR textul, pe o singură linie, fără explicații.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`,
+        `SEO title actual: ${String(input.seo_title || input.seoTitle || "-")}`
+      ].join("\n"),
+      maxTokens: 200
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "seo_title", value, text: value };
+  }
+
+  if (target === "seo_description") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează o singură meta description în română pentru rezultatele Google.",
+        "Cerințe STRICTE: între 120 și 160 de caractere, include focus keyword-ul natural, cu un CTA scurt.",
+        "Returnează DOAR textul, fără ghilimele, fără explicații, pe o singură linie.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`,
+        `Context: ${String(input.excerpt || input.content || "").replace(/<[^>]+>/g, " ").slice(0, 400)}`
+      ].join("\n"),
+      maxTokens: 300
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "seo_description", value, text: value };
+  }
+
+  if (target === "featured_image_alt") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează un singur text ALT în română pentru imaginea principală a articolului.",
+        "Cerințe: descriptiv, 5-12 cuvinte, include focus keyword-ul dacă e natural, fără ghilimele.",
+        "Returnează DOAR textul, pe o singură linie.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`
+      ].join("\n"),
+      maxTokens: 100
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "featured_image_alt", value, text: value };
+  }
+
+  // ── Default: content rewrite ──
+  const result = await generateText({
+    ...aiCfg,
+    prompt: [
+      "Aplică fix-ul SEO indicat în articolul de mai jos.",
+      "Modifică MINIMAL conținutul pentru a rezolva DOAR problema indicată, păstrând tonul și ideile.",
+      "Returnează articolul COMPLET, corectat, în română (HTML acceptat: h2, h3, p, ul, strong).",
+      "Nu adăuga explicații sau comentarii — returnează DOAR conținutul articolului.",
+      "",
+      `Fix necesar: ${recommendation}`,
+      `Focus keyword: ${focusKeyword || "-"}`,
+      "",
+      "Articol curent:",
+      String(input.content || "")
+    ].join("\n"),
     maxTokens: 4000
   });
+  return { ...result, field: "content", value: result.text, text: result.text };
 }
 
 module.exports = {
