@@ -196,6 +196,15 @@ async function generateText({
     };
   }
 
+  const generationConfig = { temperature: temp, maxOutputTokens: tokens };
+  // Gemini 2.5 Flash spends "thinking" tokens out of the SAME maxOutputTokens
+  // budget. With a small budget the thinking eats it all and the visible text is
+  // truncated mid-sentence (finishReason MAX_TOKENS). Disable thinking so the full
+  // budget goes to the actual output. (Only 2.5 Flash supports thinkingBudget 0.)
+  if (/2\.5-flash/i.test(finalModel)) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(finalModel)}:generateContent?key=${encodeURIComponent(resolvedKey)}`,
     {
@@ -203,7 +212,7 @@ async function generateText({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: `${systemPrompt ? `${systemPrompt}\n\n` : ""}${cleanPrompt}` }] }],
-        generationConfig: { temperature: temp, maxOutputTokens: tokens }
+        generationConfig
       })
     }
   );
@@ -807,7 +816,7 @@ async function fixSeoIssueItem(input = {}) {
         `Titlu actual: ${title || "-"}`,
         `Context articol: ${String(input.content || "").replace(/<[^>]+>/g, " ").slice(0, 400)}`
       ].join("\n"),
-      maxTokens: 200
+      maxTokens: 600
     });
     const value = cleanFieldValue(result.text);
     return { ...result, field: "title", value, text: value };
@@ -825,7 +834,7 @@ async function fixSeoIssueItem(input = {}) {
         `Titlu articol: ${title || "-"}`,
         `SEO title actual: ${String(input.seo_title || input.seoTitle || "-")}`
       ].join("\n"),
-      maxTokens: 200
+      maxTokens: 600
     });
     const value = cleanFieldValue(result.text);
     return { ...result, field: "seo_title", value, text: value };
@@ -843,7 +852,7 @@ async function fixSeoIssueItem(input = {}) {
         `Titlu articol: ${title || "-"}`,
         `Context: ${String(input.excerpt || input.content || "").replace(/<[^>]+>/g, " ").slice(0, 400)}`
       ].join("\n"),
-      maxTokens: 300
+      maxTokens: 700
     });
     const value = cleanFieldValue(result.text);
     return { ...result, field: "seo_description", value, text: value };
@@ -860,7 +869,7 @@ async function fixSeoIssueItem(input = {}) {
         `Focus keyword: ${focusKeyword || "-"}`,
         `Titlu articol: ${title || "-"}`
       ].join("\n"),
-      maxTokens: 100
+      maxTokens: 400
     });
     const value = cleanFieldValue(result.text);
     return { ...result, field: "featured_image_alt", value, text: value };
