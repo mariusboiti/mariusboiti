@@ -156,6 +156,44 @@
     ).join("");
   }
 
+  // ─── AI PARAM DROPDOWN OPTIONS ────────────────────────────────
+  const TONE_OPTIONS = [
+    "prietenos-profesionist",
+    "profesionist-formal",
+    "conversațional-relaxat",
+    "expert-autoritar",
+    "educativ-explicativ",
+    "inspirațional-motivant",
+    "direct și concis",
+    "empatic-apropiat"
+  ];
+  const AUDIENCE_OPTIONS = [
+    "antreprenori mici, freelanceri",
+    "proprietari de afaceri locale",
+    "startup-uri și fondatori",
+    "magazine online / e-commerce",
+    "profesioniști independenți (PFA)",
+    "companii mici și mijlocii (IMM)",
+    "clienți non-tehnici",
+    "publicul larg"
+  ];
+  const GOAL_OPTIONS = [
+    "educare + lead generation",
+    "generare lead-uri organice",
+    "creștere trafic SEO",
+    "educarea publicului",
+    "conversie spre contact / ofertă",
+    "notorietate brand",
+    "prezentare serviciu",
+    "construire autoritate / expertiză"
+  ];
+  function textOptions(values, selected) {
+    const has = values.includes(selected);
+    const base = values.map((v) => `<option value="${esc(v)}" ${v === selected ? "selected" : ""}>${esc(v)}</option>`).join("");
+    // Preserve any pre-existing custom value not in the list
+    return has || !selected ? base : `<option value="${esc(selected)}" selected>${esc(selected)}</option>${base}`;
+  }
+
   // ─── BLOG EDITOR ───────────────────────────────────────────────
   async function openBlogEditor({ categories, onSaved, post = null }) {
     const m = modal({
@@ -210,6 +248,7 @@
             <div class="field">
               <label>Taguri <small style="color:#94a3b8;">(separate prin virgulă)</small></label>
               <input name="tags_json" value="${esc(tags)}" placeholder="seo, web design, antreprenori…" />
+              <button class="btn btn-secondary" type="button" data-gen-field="tags" style="margin-top:.35rem;font-size:.8rem;padding:.3rem .6rem;">🏷️ Generează taguri cu AI</button>
             </div>
             <div style="grid-column:1/-1;display:flex;gap:.6rem;align-items:flex-start;flex-wrap:wrap;">
               <div style="flex:1;min-width:200px;">
@@ -219,6 +258,7 @@
               <div class="field" style="flex:1;min-width:200px;">
                 <label>Alt text imagine</label>
                 <input name="featured_image_alt" value="${esc(post?.featured_image_alt || "")}" placeholder="Descriere imagine pentru SEO…" />
+                <button class="btn btn-secondary" type="button" data-gen-field="featured_image_alt" style="margin-top:.35rem;font-size:.8rem;padding:.3rem .6rem;">✨ Generează alt text cu AI</button>
               </div>
             </div>
             <div class="field">
@@ -263,10 +303,12 @@
             <div class="field" style="grid-column:1/-1;">
               <label>OG Title</label>
               <input name="og_title" value="${esc(post?.og_title || "")}" placeholder="Titlu pentru Facebook / LinkedIn…" />
+              <button class="btn btn-secondary" type="button" data-gen-field="og_title" style="margin-top:.35rem;font-size:.8rem;padding:.3rem .6rem;">✨ Generează OG title cu AI</button>
             </div>
             <div class="field" style="grid-column:1/-1;">
               <label>OG Description</label>
               <textarea name="og_description" rows="2" placeholder="Descriere pentru social media…">${esc(post?.og_description || "")}</textarea>
+              <button class="btn btn-secondary" type="button" data-gen-field="og_description" style="margin-top:.35rem;font-size:.8rem;padding:.3rem .6rem;">✨ Generează OG description cu AI</button>
             </div>
             <div style="grid-column:1/-1;">
               ${imagePickerMarkup("og_image", "OG Image (1200×630)", ".jpg,.jpeg,.png,.webp,.svg")}
@@ -301,7 +343,7 @@
             </div>
             <div class="field">
               <label>Ton</label>
-              <input name="ai_tone" value="prietenos-profesionist" placeholder="prietenos-profesionist" />
+              <select name="ai_tone">${textOptions(TONE_OPTIONS, "prietenos-profesionist")}</select>
             </div>
             <div class="field">
               <label>Topic / Subiect</label>
@@ -313,11 +355,11 @@
             </div>
             <div class="field">
               <label>Public țintă</label>
-              <input name="ai_audience" value="antreprenori mici, freelanceri" />
+              <select name="ai_audience">${textOptions(AUDIENCE_OPTIONS, "antreprenori mici, freelanceri")}</select>
             </div>
             <div class="field">
               <label>Obiectiv articol</label>
-              <input name="ai_goal" value="educare + lead generation" />
+              <select name="ai_goal">${textOptions(GOAL_OPTIONS, "educare + lead generation")}</select>
             </div>
             <div class="row row-wrap" style="grid-column:1/-1;gap:.5rem;padding:.6rem;background:rgba(2,6,23,.25);border-radius:10px;">
               <button class="btn btn-secondary" type="button" data-ai-action="outline">📋 Outline</button>
@@ -908,6 +950,46 @@ ${value}`.trim();
         if (suggestPromptBtn) suggestPromptBtn.click();
       });
     }
+
+    // ── GENERATE FIELD WITH AI (tags / alt / og_title / og_description) ──
+    const GEN_FIELD_TO_FORM = {
+      tags: "tags_json",
+      featured_image_alt: "featured_image_alt",
+      og_title: "og_title",
+      og_description: "og_description"
+    };
+    $$("[data-gen-field]", m.body).forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const field = btn.dataset.genField;
+        const origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "⏳ Generez…";
+        try {
+          const get = (name) => form.elements.namedItem(name)?.value || "";
+          const payload = {
+            provider: form.elements.namedItem("ai_provider")?.value || "gemini",
+            field,
+            focusKeyword: get("focus_keyword") || get("ai_focus_keyword"),
+            title: get("title") || get("ai_topic"),
+            excerpt: get("excerpt"),
+            content: contentField?.value || ""
+          };
+          const result = await apiX("/api/admin/ai/blog/generate-field", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          const value = result?.value != null ? String(result.value) : normalizeAiText(result?.text || "");
+          if (!value) { toast("AI nu a returnat un rezultat.", "error"); return; }
+          setFormValue(form, GEN_FIELD_TO_FORM[field] || field, value);
+          toast("Generat cu AI ✓");
+        } catch (error) {
+          toast(error.message, "error");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      });
+    });
 
     // ── FOOTER BUTTONS ────────────────────────────────
     m.foot.innerHTML = `

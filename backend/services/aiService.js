@@ -895,6 +895,98 @@ async function fixSeoIssueItem(input = {}) {
   return { ...result, field: "content", value: result.text, text: result.text };
 }
 
+// Generate a single article field on demand (tags / alt text / OG title / OG description).
+async function generateBlogField(input = {}) {
+  const field = String(input.field || "").trim();
+  if (!field) throw new Error("Câmpul de generat este obligatoriu.");
+
+  const focusKeyword = String(input.focusKeyword || "").trim();
+  const title = String(input.title || "").trim();
+  const contextPlain = String(input.excerpt || input.content || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+  const aiCfg = {
+    ...extractPromptConfig(input),
+    systemPrompt: input.systemPrompt || DEFAULT_SYSTEM_PROMPT
+  };
+
+  if (field === "tags") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează între 5 și 8 tag-uri SEO relevante în română pentru articolul de mai jos.",
+        "Returnează DOAR tag-urile separate prin virgulă, pe o singură linie, fără numerotare, fără explicații.",
+        "Tag-uri scurte (1-3 cuvinte), lowercase, relevante pentru căutare.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`,
+        `Context: ${contextPlain || "-"}`
+      ].join("\n"),
+      maxTokens: 500
+    });
+    const tags = normalizeStringList(result.text).map((t) => t.replace(/^["'`#]+|["'`]+$/g, "").trim()).filter(Boolean).slice(0, 8);
+    const value = tags.join(", ");
+    return { ...result, field: "tags", tags, value, text: value };
+  }
+
+  if (field === "featured_image_alt") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează un singur text ALT în română pentru imaginea principală a articolului.",
+        "Cerințe: descriptiv, 5-12 cuvinte, include focus keyword-ul dacă e natural, fără ghilimele.",
+        "Returnează DOAR textul, pe o singură linie.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`
+      ].join("\n"),
+      maxTokens: 400
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "featured_image_alt", value, text: value };
+  }
+
+  if (field === "og_title") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează un singur titlu Open Graph în română pentru distribuire pe Facebook / LinkedIn.",
+        "Cerințe: atractiv și clar pentru social media, 40-70 caractere, include focus keyword-ul natural.",
+        "Returnează DOAR textul, fără ghilimele, pe o singură linie, fără explicații.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`,
+        `Context: ${contextPlain || "-"}`
+      ].join("\n"),
+      maxTokens: 500
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "og_title", value, text: value };
+  }
+
+  if (field === "og_description") {
+    const result = await generateText({
+      ...aiCfg,
+      prompt: [
+        "Generează o singură descriere Open Graph în română pentru distribuire pe social media.",
+        "Cerințe: 120-200 caractere, captivantă, cu un cârlig clar și CTA scurt, include focus keyword-ul natural.",
+        "Returnează DOAR textul, fără ghilimele, pe o singură linie, fără explicații.",
+        "",
+        `Focus keyword: ${focusKeyword || "-"}`,
+        `Titlu articol: ${title || "-"}`,
+        `Context: ${contextPlain || "-"}`
+      ].join("\n"),
+      maxTokens: 600
+    });
+    const value = cleanFieldValue(result.text);
+    return { ...result, field: "og_description", value, text: value };
+  }
+
+  throw new Error(`Câmp necunoscut pentru generare: ${field}`);
+}
+
 module.exports = {
   generateText,
   generateImage,
@@ -905,5 +997,6 @@ module.exports = {
   generateSeoMetadata,
   fixSeoIssues,
   fixSeoIssueItem,
+  generateBlogField,
   generateImagePrompt
 };

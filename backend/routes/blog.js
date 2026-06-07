@@ -723,6 +723,9 @@ adminRouter.post("/ai/blog/fix-seo", aiLimiter, (req, res) =>
 adminRouter.post("/ai/blog/fix-seo-item", aiLimiter, (req, res) =>
   handleAiAction(req, res, aiService.fixSeoIssueItem, "Fix SEO item aplicat.")
 );
+adminRouter.post("/ai/blog/generate-field", aiLimiter, (req, res) =>
+  handleAiAction(req, res, aiService.generateBlogField, "Câmp generat.")
+);
 // Stateless live analysis — runs on posted form data, no DB write, works for unsaved posts
 adminRouter.post("/ai/blog/analyze", (req, res) => {
   try {
