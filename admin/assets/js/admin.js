@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { key: "blog", label: "Blog", href: "/admin/blog.html" },
   { key: "blog-categories", label: "Categorii blog", href: "/admin/blog-categories.html" },
   { key: "ai-settings", label: "AI Settings", href: "/admin/ai-settings.html" },
+  { key: "reviews", label: "Recenzii Google", href: "/admin/reviews.html" },
   { key: "backup", label: "Backup", href: "/admin/backup.html" }
 ];
 
@@ -2195,6 +2196,86 @@ async function initProjectLogos() {
   });
 }
 
+async function initReviews() {
+  const mount = $("#reviews-page");
+  if (!mount) return;
+
+  mount.innerHTML = `
+    ${pageHeader("Recenzii Google", "Recenziile apar pe homepage, în secțiunea „Ce spun clienții". Adaugă sau editează recenzii manual.", "Adaugă recenzie", "reviews-add-btn")}
+    <section class="card" id="reviews-root"><div class="table-wrap"></div></section>
+  `;
+
+  crud({
+    rootId: "reviews-root",
+    list: "/api/admin/reviews",
+    create: "/api/admin/reviews",
+    upd: "/api/admin/reviews",
+    del: "/api/admin/reviews",
+    addBtnId: "reviews-add-btn",
+    addTitle: "Adaugă recenzie",
+    editTitle: "Editează recenzie",
+    resetToAdd: true,
+    labelField: "reviewer_name",
+    getNewItem: (rows) => ({
+      reviewer_name: "",
+      rating: 5,
+      review_text: "",
+      reviewer_url: "",
+      sort_order: (rows || []).reduce((max, row) => Math.max(max, Number(row.sort_order || 0)), 0) + 1,
+      is_active: 1
+    }),
+    emptyText: "Nu ai adăugat încă recenzii. Apasă „Adaugă recenzie" pentru a începe.",
+    emptyBtn: "Adaugă prima recenzie",
+    table: () =>
+      `<table><thead><tr><th>Recenzor</th><th>Rating</th><th>Text (preview)</th><th>Sort</th><th>Activ</th><th>Acțiuni</th></tr></thead><tbody></tbody></table>`,
+    row: (it) => {
+      const stars = "★".repeat(Math.min(5, Number(it.rating || 5)));
+      const preview = it.review_text ? (it.review_text.length > 80 ? it.review_text.slice(0, 80) + "…" : it.review_text) : "<em class='muted'>Fără text</em>";
+      return `
+        <td><strong>${esc(it.reviewer_name)}</strong></td>
+        <td><span style="color:#facc15;letter-spacing:1px;">${stars}</span></td>
+        <td style="max-width:280px;font-size:0.85rem;">${preview}</td>
+        <td>${Number(it.sort_order || 0)}</td>
+        <td>${badge(it.is_active ? "Activ" : "Inactiv", it.is_active ? "success" : "neutral")}</td>
+      `;
+    },
+    form: (it) => `
+      <form class="grid grid-2">
+        <div class="field" style="grid-column:1/-1;">
+          <label>Nume recenzor <span style="color:#f87171">*</span></label>
+          <input name="reviewer_name" value="${esc(it.reviewer_name || "")}" placeholder="ex: Ion Popescu" required />
+          <small class="field-error" data-error-for="reviewer_name"></small>
+        </div>
+        <div class="field">
+          <label>Rating (1-5 stele)</label>
+          <select name="rating">
+            ${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${Number(it.rating || 5) === n ? "selected" : ""}>${"★".repeat(n)} (${n})</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label>Link profil Google (opțional)</label>
+          <input name="reviewer_url" value="${esc(it.reviewer_url || "")}" placeholder="https://maps.google.com/..." />
+          <small class="hint">URL-ul de pe Google Maps sau profilul recenzorului.</small>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>Textul recenziei</label>
+          <textarea name="review_text" rows="5" placeholder="Textul complet al recenziei în română...">${esc(it.review_text || "")}</textarea>
+          <small class="hint">Lasă gol dacă recenzorul nu a scris text (doar stele).</small>
+        </div>
+        <div class="field">
+          <label>Ordine afișare</label>
+          <input type="number" name="sort_order" value="${Number(it.sort_order || 0)}" min="0" />
+        </div>
+        <div class="row" style="align-items:center;margin-top:1.8rem;">
+          <label class="check-inline">
+            <input type="checkbox" name="is_active" value="1" ${it.is_active === false || it.is_active === 0 ? "" : "checked"} /> Afișează pe site
+          </label>
+        </div>
+      </form>
+    `
+  });
+}
+
 async function initBackup() {
   const downloadBtn = $("#download-backup-btn");
   const importForm = $("#backup-import-form");
@@ -2257,6 +2338,7 @@ async function initCurrentPage() {
     if (pageKey() === "seo") await initSeo();
     if (pageKey() === "media") await initMedia();
     if (pageKey() === "project-logos") await initProjectLogos();
+    if (pageKey() === "reviews") await initReviews();
     if (pageKey() === "backup") await initBackup();
     if (pageKey() === "blog" && typeof window.initBlogPage === "function") await window.initBlogPage();
     if (pageKey() === "blog-categories" && typeof window.initBlogCategoriesPage === "function") await window.initBlogCategoriesPage();

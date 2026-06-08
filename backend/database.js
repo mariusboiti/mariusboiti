@@ -206,6 +206,37 @@ async function runMigrations(db) {
     );
   }
 
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS google_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reviewer_name TEXT NOT NULL,
+      rating INTEGER NOT NULL DEFAULT 5,
+      review_text TEXT,
+      reviewer_url TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  const reviewCount = await db.get("SELECT COUNT(*) as cnt FROM google_reviews");
+  if (reviewCount.cnt === 0) {
+    const googleMapsUrl = "https://www.google.com/maps/place/Marius+Boiti+Studio/@45.9829471,24.2652369,8.25z/data=!4m18!1m9!3m8!1s0xaa0b29cea216664b:0x23844c3754a1fefe!2sMarius+Boiti+Studio!8m2!3d45.9425072!4d25.0201084!9m1!1b1!16s%2Fg%2F11z8k4kmkk!3m7!1s0xaa0b29cea216664b:0x23844c3754a1fefe!8m2!3d45.9425072!4d25.0201084!9m1!1b1!16s%2Fg%2F11z8k4kmkk?entry=ttu";
+    await db.run(
+      `INSERT INTO google_reviews (reviewer_name, rating, review_text, reviewer_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)`,
+      ["Bogdan Moldovan", 5, "", googleMapsUrl, 1, 1]
+    );
+    await db.run(
+      `INSERT INTO google_reviews (reviewer_name, rating, review_text, reviewer_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)`,
+      ["Loren Morar", 5, "O experiență de nota 10! Marius Boiti Studio a dat dovadă de profesionalism, promptitudine și seriozitate. Site-ul a fost creat rapid, exact cum am planificat. Îl recomand cu toată încrederea!", googleMapsUrl, 2, 1]
+    );
+    await db.run(
+      `INSERT INTO google_reviews (reviewer_name, rating, review_text, reviewer_url, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)`,
+      ["Cristian Madar", 5, "Am colaborat cu Marius Boiti pentru dezvoltarea unui site web de la zero și pot spune că experiența a fost excelentă. A înțeles rapid ce îmi doream și a creat site-ul exact conform cerințelor mele. Pe toată durata proiectului a demonstrat profesionalism, seriozitate și atenție la detalii. Comunicarea a fost foarte bună, termenul de livrare scurt, iar prețul mai mult decât corect pentru calitatea serviciilor oferite. Îl recomand cu căldură oricui are nevoie de servicii de web design și dezvoltare.", googleMapsUrl, 3, 1]
+    );
+  }
+
   await repairEncodingIssues(db);
 }
 
