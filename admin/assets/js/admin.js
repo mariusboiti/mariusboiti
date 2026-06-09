@@ -2201,7 +2201,7 @@ async function initReviews() {
   if (!mount) return;
 
   mount.innerHTML = `
-    ${pageHeader("Recenzii Google", "Recenziile apar pe homepage, în secțiunea „Ce spun clienții". Adaugă sau editează recenzii manual.", "Adaugă recenzie", "reviews-add-btn")}
+    ${pageHeader("Recenzii Google", "Recenziile apar pe homepage in sectiunea Ce spun clientii. Adauga sau editeaza recenzii manual.", "Adauga recenzie", "reviews-add-btn")}
     <section class="card" id="reviews-root"><div class="table-wrap"></div></section>
   `;
 
@@ -2224,8 +2224,8 @@ async function initReviews() {
       sort_order: (rows || []).reduce((max, row) => Math.max(max, Number(row.sort_order || 0)), 0) + 1,
       is_active: 1
     }),
-    emptyText: "Nu ai adăugat încă recenzii. Apasă „Adaugă recenzie" pentru a începe.",
-    emptyBtn: "Adaugă prima recenzie",
+    emptyText: "Nu ai adaugat inca recenzii. Apasa butonul Adauga recenzie pentru a incepe.",
+    emptyBtn: "Adauga prima recenzie",
     table: () =>
       `<table><thead><tr><th>Recenzor</th><th>Rating</th><th>Text (preview)</th><th>Sort</th><th>Activ</th><th>Acțiuni</th></tr></thead><tbody></tbody></table>`,
     row: (it) => {
