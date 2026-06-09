@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
   favicon TEXT,
   default_meta_title TEXT,
   default_meta_description TEXT,
+  ga_measurement_id TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -122,6 +123,7 @@ CREATE TABLE IF NOT EXISTS calculator_options (
   option_label TEXT NOT NULL,
   option_value TEXT,
   option_type TEXT NOT NULL CHECK(option_type IN ('single','checkbox')),
+  description TEXT,
   price_add INTEGER NOT NULL DEFAULT 0,
   base_price INTEGER NOT NULL DEFAULT 0,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -252,7 +254,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 CREATE TABLE IF NOT EXISTS ai_settings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   provider TEXT NOT NULL DEFAULT 'gemini' CHECK(provider IN ('openai', 'gemini')),
-  model TEXT NOT NULL DEFAULT 'gemini-1.5-flash',
+  model TEXT NOT NULL DEFAULT 'gemini-2.5-flash',
   temperature REAL NOT NULL DEFAULT 0.7,
   max_tokens INTEGER NOT NULL DEFAULT 1200,
   system_prompt TEXT,
@@ -265,3 +267,25 @@ CREATE TABLE IF NOT EXISTS ai_settings (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS google_reviews (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reviewer_name TEXT NOT NULL,
+  rating INTEGER NOT NULL DEFAULT 5 CHECK(rating BETWEEN 1 AND 5),
+  review_text TEXT,
+  reviewer_url TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ── Performance indexes ────────────────────────────────
+CREATE INDEX IF NOT EXISTS idx_blog_posts_status        ON blog_posts(status);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_category      ON blog_posts(category_id);
+CREATE INDEX IF NOT EXISTS idx_blog_posts_published_at  ON blog_posts(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_leads_status             ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_leads_created_at         ON leads(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_services_active          ON services(is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_portfolio_active         ON portfolio_projects(is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_google_reviews_active    ON google_reviews(is_active, sort_order);

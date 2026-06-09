@@ -18,7 +18,11 @@ async function getDb() {
     driver: sqlite3.Database
   });
 
+  // Enable WAL journal mode for better concurrent read performance
+  await dbInstance.exec("PRAGMA journal_mode = WAL;");
+  await dbInstance.exec("PRAGMA synchronous = NORMAL;");
   await dbInstance.exec("PRAGMA foreign_keys = ON;");
+
   return dbInstance;
 }
 
@@ -240,7 +244,21 @@ async function runMigrations(db) {
   await repairEncodingIssues(db);
 }
 
+/**
+ * One-time encoding repair — runs only once, tracked via a sentinel key
+ * in site_settings. Moving it out of the hot startup path prevents the
+ * O(tables × rows × columns × replacements) scan on every server restart.
+ *
+ * To force a re-run: DELETE FROM site_settings WHERE site_name = '__encoding_repaired__'
+ * (or just call repairEncodingIssues(db) directly from a maintenance script).
+ */
 async function repairEncodingIssues(db) {
+  // Guard: run only once per database lifetime
+  const sentinel = await db.get(
+    "SELECT 1 FROM site_settings WHERE site_name = '__encoding_repaired__' LIMIT 1"
+  );
+  if (sentinel) return;
+
   const tableRows = await db.all("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
 
   for (const { name: table } of tableRows) {
@@ -284,6 +302,12 @@ async function repairEncodingIssues(db) {
       await db.run(`UPDATE ${table} SET ${setClauses.join(", ")} WHERE ${useId ? "id" : "rowid"} = ?`, args);
     }
   }
+
+  // Mark as done so subsequent restarts skip this scan entirely
+  await db.run(
+    "INSERT OR IGNORE INTO site_settings (site_name, created_at, updated_at) VALUES ('__encoding_repaired__', ?, ?)",
+    [nowIso(), nowIso()]
+  );
 }
 
 async function resetDatabase() {

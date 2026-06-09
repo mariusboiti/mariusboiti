@@ -1,11 +1,12 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
 
-publicRouter.get("/calculator", async (_req, res) => {
+publicRouter.get("/calculator", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const [options, settings] = await Promise.all([
     db.all("SELECT * FROM calculator_options WHERE is_active = 1 ORDER BY step_key ASC, sort_order ASC, id ASC"),
@@ -13,15 +14,15 @@ publicRouter.get("/calculator", async (_req, res) => {
   ]);
 
   return res.json({ options, settings: settings || {} });
-});
+}));
 
-adminRouter.get("/calculator/options", async (_req, res) => {
+adminRouter.get("/calculator/options", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM calculator_options ORDER BY step_key ASC, sort_order ASC, id ASC");
   return res.json(rows);
-});
+}));
 
-adminRouter.post("/calculator/options", async (req, res) => {
+adminRouter.post("/calculator/options", asyncHandler(async (req, res) => {
   const payload = {
     step_key: sanitizeText(req.body.step_key, 120),
     step_title: sanitizeNullable(req.body.step_title, 500),
@@ -36,7 +37,7 @@ adminRouter.post("/calculator/options", async (req, res) => {
   };
 
   if (!payload.step_key || !payload.option_label) {
-    return res.status(400).json({ error: "step_key și option_label sunt obligatorii." });
+    return res.status(400).json({ error: "step_key si option_label sunt obligatorii." });
   }
 
   const db = await getDb();
@@ -60,9 +61,9 @@ adminRouter.post("/calculator/options", async (req, res) => {
 
   const created = await db.get("SELECT * FROM calculator_options WHERE id = ?", [result.lastID]);
   return res.status(201).json({ ok: true, data: created });
-});
+}));
 
-adminRouter.put("/calculator/options/:id", async (req, res) => {
+adminRouter.put("/calculator/options/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const payload = {
     step_key: sanitizeText(req.body.step_key, 120),
@@ -103,21 +104,21 @@ adminRouter.put("/calculator/options/:id", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM calculator_options WHERE id = ?", [id]);
   return res.json({ ok: true, data: updated });
-});
+}));
 
-adminRouter.delete("/calculator/options/:id", async (req, res) => {
+adminRouter.delete("/calculator/options/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   await db.run("DELETE FROM calculator_options WHERE id = ?", [toInt(req.params.id, 0)]);
   return res.json({ ok: true });
-});
+}));
 
-adminRouter.get("/calculator/settings", async (_req, res) => {
+adminRouter.get("/calculator/settings", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM calculator_settings ORDER BY id DESC LIMIT 1");
   return res.json(row || {});
-});
+}));
 
-adminRouter.put("/calculator/settings", async (req, res) => {
+adminRouter.put("/calculator/settings", asyncHandler(async (req, res) => {
   const payload = {
     max_multiplier: Number.parseFloat(req.body.max_multiplier) || 1.2,
     round_to: toInt(req.body.round_to, 100),
@@ -182,7 +183,7 @@ adminRouter.put("/calculator/settings", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM calculator_settings ORDER BY id DESC LIMIT 1");
   return res.json({ ok: true, data: updated });
-});
+}));
 
 module.exports = {
   publicRouter,

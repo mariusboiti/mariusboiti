@@ -1,8 +1,9 @@
-﻿const express = require("express");
+const express = require("express");
 const nodemailer = require("nodemailer");
 const { getDb, nowIso, stringifyJsonField } = require("../database");
 const { mapLead } = require("../utils/formatters");
 const { sanitizeNullable, sanitizeText, toInt, validateEmail } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -54,7 +55,31 @@ async function notifyLead(lead) {
   });
 }
 
-publicRouter.post("/leads", async (req, res) => {
+// Validate and clamp calculator_summary_json from untrusted public input.
+// Rejects payloads that are too large or not a plain object/null.
+function sanitizeCalculatorJson(raw) {
+  if (raw === null || raw === undefined || raw === "") return null;
+
+  // Must be a plain object (or already serialised string)
+  let parsed = raw;
+  if (typeof raw === "string") {
+    if (raw.length > 8000) return null; // hard size cap
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  if (typeof parsed !== "object" || Array.isArray(parsed) || parsed === null) return null;
+
+  // Serialise back to a controlled string to avoid prototype pollution
+  const serialised = JSON.stringify(parsed);
+  if (serialised.length > 8000) return null;
+  return serialised;
+}
+
+publicRouter.post("/leads", asyncHandler(async (req, res) => {
   const payload = {
     name: sanitizeText(req.body.name, 255),
     email: sanitizeText(req.body.email, 255).toLowerCase(),
@@ -63,7 +88,7 @@ publicRouter.post("/leads", async (req, res) => {
     budget_range: sanitizeNullable(req.body.budget_range, 255),
     timeline: sanitizeNullable(req.body.timeline, 255),
     message: sanitizeText(req.body.message, 8000),
-    calculator_summary_json: req.body.calculator_summary_json || null,
+    calculator_summary_json: sanitizeCalculatorJson(req.body.calculator_summary_json),
     estimated_min: req.body.estimated_min === undefined || req.body.estimated_min === null || req.body.estimated_min === "" ? null : toInt(req.body.estimated_min, 0),
     estimated_max: req.body.estimated_max === undefined || req.body.estimated_max === null || req.body.estimated_max === "" ? null : toInt(req.body.estimated_max, 0),
     recommended_package: sanitizeNullable(req.body.recommended_package, 255),
@@ -73,7 +98,7 @@ publicRouter.post("/leads", async (req, res) => {
   };
 
   if (!payload.name || !payload.message || !validateEmail(payload.email)) {
-    return res.status(400).json({ error: "Nume, email valid și mesaj sunt obligatorii." });
+    return res.status(400).json({ error: "Nume, email valid si mesaj sunt obligatorii." });
   }
 
   const db = await getDb();
@@ -89,7 +114,7 @@ publicRouter.post("/leads", async (req, res) => {
       payload.budget_range,
       payload.timeline,
       payload.message,
-      stringifyJsonField(payload.calculator_summary_json),
+      payload.calculator_summary_json,
       payload.estimated_min,
       payload.estimated_max,
       payload.recommended_package,
@@ -106,10 +131,10 @@ publicRouter.post("/leads", async (req, res) => {
     // SMTP is optional.
   });
 
-  return res.status(201).json({ ok: true, message: "Cererea ta a fost trimisă cu succes.", data: mapped });
-});
+  return res.status(201).json({ ok: true, message: "Cererea ta a fost trimisa cu succes.", data: mapped });
+}));
 
-adminRouter.get("/leads", async (req, res) => {
+adminRouter.get("/leads", asyncHandler(async (req, res) => {
   const status = sanitizeNullable(req.query.status, 30);
   const source = sanitizeNullable(req.query.source, 120);
   const projectType = sanitizeNullable(req.query.project_type, 255);
@@ -143,16 +168,16 @@ adminRouter.get("/leads", async (req, res) => {
   const rows = await db.all(`SELECT * FROM leads ${where} ORDER BY created_at DESC`, params);
 
   return res.json(rows.map(mapLead));
-});
+}));
 
-adminRouter.get("/leads/:id", async (req, res) => {
+adminRouter.get("/leads/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM leads WHERE id = ?", [toInt(req.params.id, 0)]);
   if (!row) return res.status(404).json({ error: "Not found" });
   return res.json(mapLead(row));
-});
+}));
 
-adminRouter.put("/leads/:id", async (req, res) => {
+adminRouter.put("/leads/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const payload = {
     status: sanitizeNullable(req.body.status, 30) || "new",
@@ -182,13 +207,13 @@ adminRouter.put("/leads/:id", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM leads WHERE id = ?", [id]);
   return res.json({ ok: true, data: mapLead(updated) });
-});
+}));
 
-adminRouter.delete("/leads/:id", async (req, res) => {
+adminRouter.delete("/leads/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   await db.run("DELETE FROM leads WHERE id = ?", [toInt(req.params.id, 0)]);
   return res.json({ ok: true });
-});
+}));
 
 module.exports = {
   publicRouter,

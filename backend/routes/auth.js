@@ -1,42 +1,42 @@
-﻿const express = require("express");
+const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { getDb } = require("../database");
 const { requireAuth } = require("../middleware/auth");
 const { sanitizeText, validateEmail } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const router = express.Router();
 
+const JWT_SECRET = process.env.JWT_SECRET || "change-this-secret";
+const IS_PROD = process.env.NODE_ENV === "production";
+
 function signToken(admin) {
   return jwt.sign(
-    {
-      id: admin.id,
-      email: admin.email,
-      name: admin.name
-    },
-    process.env.JWT_SECRET || "change-this-secret",
+    { id: admin.id, email: admin.email, name: admin.name },
+    JWT_SECRET,
     { expiresIn: "12h" }
   );
 }
 
-router.post("/login", async (req, res) => {
+router.post("/login", asyncHandler(async (req, res) => {
   const email = sanitizeText(req.body.email || "", 200).toLowerCase();
   const password = String(req.body.password || "");
 
   if (!validateEmail(email) || !password) {
-    return res.status(400).json({ error: "Email/parolă invalidă." });
+    return res.status(400).json({ error: "Email/parola invalida." });
   }
 
   const db = await getDb();
   const admin = await db.get("SELECT * FROM admins WHERE email = ?", [email]);
 
   if (!admin) {
-    return res.status(401).json({ error: "Credențiale invalide." });
+    return res.status(401).json({ error: "Credentiale invalide." });
   }
 
   const valid = await bcrypt.compare(password, admin.password_hash);
   if (!valid) {
-    return res.status(401).json({ error: "Credențiale invalide." });
+    return res.status(401).json({ error: "Credentiale invalide." });
   }
 
   const token = signToken(admin);
@@ -44,7 +44,7 @@ router.post("/login", async (req, res) => {
   res.cookie("admin_token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: IS_PROD,
     maxAge: 12 * 60 * 60 * 1000
   });
 
@@ -56,20 +56,20 @@ router.post("/login", async (req, res) => {
       name: admin.name
     }
   });
-});
+}));
 
 router.post("/logout", (_req, res) => {
   res.clearCookie("admin_token");
   return res.json({ ok: true });
 });
 
-router.get("/me", requireAuth, async (req, res) => {
+router.get("/me", requireAuth, asyncHandler(async (req, res) => {
   const db = await getDb();
   const admin = await db.get("SELECT id, name, email, created_at, updated_at FROM admins WHERE id = ?", [req.admin.id]);
   if (!admin) {
     return res.status(404).json({ error: "Admin not found" });
   }
   return res.json({ admin });
-});
+}));
 
 module.exports = router;

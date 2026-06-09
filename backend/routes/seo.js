@@ -1,25 +1,26 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
 
-publicRouter.get("/seo/:pageKey", async (req, res) => {
+publicRouter.get("/seo/:pageKey", asyncHandler(async (req, res) => {
   const pageKey = sanitizeText(req.params.pageKey, 100);
   const db = await getDb();
   const row = await db.get("SELECT * FROM seo_pages WHERE page_key = ?", [pageKey]);
   if (!row) return res.status(404).json({ error: "Not found" });
   return res.json(row);
-});
+}));
 
-adminRouter.get("/seo", async (_req, res) => {
+adminRouter.get("/seo", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM seo_pages ORDER BY page_key ASC");
   return res.json(rows);
-});
+}));
 
-adminRouter.put("/seo/:pageKey", async (req, res) => {
+adminRouter.put("/seo/:pageKey", asyncHandler(async (req, res) => {
   const pageKey = sanitizeText(req.params.pageKey, 100);
   const payload = {
     page_title: sanitizeNullable(req.body.page_title, 255),
@@ -74,7 +75,7 @@ adminRouter.put("/seo/:pageKey", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM seo_pages WHERE page_key = ?", [pageKey]);
   return res.json({ ok: true, data: updated });
-});
+}));
 
 module.exports = {
   publicRouter,

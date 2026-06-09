@@ -1,7 +1,8 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, nowIso, stringifyJsonField } = require("../database");
 const { mapPackage } = require("../utils/formatters");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt, parseJsonInput, slugify } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -23,19 +24,19 @@ function buildPayload(body) {
   };
 }
 
-publicRouter.get("/packages", async (_req, res) => {
+publicRouter.get("/packages", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM packages WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
   return res.json(rows.map(mapPackage));
-});
+}));
 
-adminRouter.get("/packages", async (_req, res) => {
+adminRouter.get("/packages", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM packages ORDER BY sort_order ASC, id ASC");
   return res.json(rows.map(mapPackage));
-});
+}));
 
-adminRouter.post("/packages", async (req, res) => {
+adminRouter.post("/packages", asyncHandler(async (req, res) => {
   const payload = buildPayload(req.body || {});
   if (!payload.name) return res.status(400).json({ error: "Numele este obligatoriu." });
   const db = await getDb();
@@ -60,16 +61,16 @@ adminRouter.post("/packages", async (req, res) => {
 
   const created = await db.get("SELECT * FROM packages WHERE id = ?", [result.lastID]);
   return res.status(201).json({ ok: true, data: mapPackage(created) });
-});
+}));
 
-adminRouter.get("/packages/:id", async (req, res) => {
+adminRouter.get("/packages/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM packages WHERE id = ?", [toInt(req.params.id, 0)]);
   if (!row) return res.status(404).json({ error: "Not found" });
   return res.json(mapPackage(row));
-});
+}));
 
-adminRouter.put("/packages/:id", async (req, res) => {
+adminRouter.put("/packages/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const payload = buildPayload(req.body || {});
   if (!payload.name) return res.status(400).json({ error: "Numele este obligatoriu." });
@@ -101,13 +102,13 @@ adminRouter.put("/packages/:id", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM packages WHERE id = ?", [id]);
   return res.json({ ok: true, data: mapPackage(updated) });
-});
+}));
 
-adminRouter.delete("/packages/:id", async (req, res) => {
+adminRouter.delete("/packages/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   await db.run("DELETE FROM packages WHERE id = ?", [toInt(req.params.id, 0)]);
   return res.json({ ok: true });
-});
+}));
 
 module.exports = {
   publicRouter,

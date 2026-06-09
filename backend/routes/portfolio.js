@@ -4,6 +4,8 @@ const path = require("path");
 const { getDb, nowIso, stringifyJsonField } = require("../database");
 const { mapPortfolio } = require("../utils/formatters");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt, parseJsonInput, slugify } = require("../utils/security");
+const { ensureUniqueSlug } = require("../utils/slugUtils");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -142,21 +144,6 @@ function normalizeSections(value) {
   return clean;
 }
 
-async function buildUniqueSlug(db, desiredSlug, excludeId = null) {
-  const base = slugify(desiredSlug) || `proiect-${Date.now()}`;
-  let next = base;
-  let index = 2;
-
-  while (true) {
-    const row = excludeId
-      ? await db.get("SELECT id FROM portfolio_projects WHERE slug = ? AND id != ?", [next, excludeId])
-      : await db.get("SELECT id FROM portfolio_projects WHERE slug = ?", [next]);
-    if (!row) return next;
-    next = `${base}-${index}`;
-    index += 1;
-  }
-}
-
 function buildPayload(body = {}) {
   const title = sanitizeText(body.title, 255);
   const slug = slugify(body.slug || title);
@@ -213,33 +200,28 @@ function buildPayload(body = {}) {
   };
 }
 
-publicRouter.get("/portfolio", async (_req, res) => {
+publicRouter.get("/portfolio", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM portfolio_projects WHERE is_active = 1 ORDER BY sort_order ASC, id ASC");
   return res.json(rows.map(mapPortfolio));
-});
+}));
 
-publicRouter.get("/portfolio/:slug", async (req, res) => {
-  try {
-    const db = await getDb();
-    const safeSlug = slugify(req.params.slug || "");
-    if (!safeSlug) return res.status(404).json({ error: "Not found" });
-    const row = await db.get("SELECT * FROM portfolio_projects WHERE slug = ? AND is_active = 1", [safeSlug]);
-    if (!row) return res.status(404).json({ error: "Not found" });
-    return res.json(mapPortfolio(row));
-  } catch (error) {
-    console.error("[portfolio.public.slug] error", error);
-    return res.status(500).json({ error: "Nu am putut încărca proiectul." });
-  }
-});
+publicRouter.get("/portfolio/:slug", asyncHandler(async (req, res) => {
+  const db = await getDb();
+  const safeSlug = slugify(req.params.slug || "");
+  if (!safeSlug) return res.status(404).json({ error: "Not found" });
+  const row = await db.get("SELECT * FROM portfolio_projects WHERE slug = ? AND is_active = 1", [safeSlug]);
+  if (!row) return res.status(404).json({ error: "Not found" });
+  return res.json(mapPortfolio(row));
+}));
 
-adminRouter.get("/portfolio", async (_req, res) => {
+adminRouter.get("/portfolio", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM portfolio_projects ORDER BY sort_order ASC, id ASC");
   return res.json(rows.map(mapPortfolio));
-});
+}));
 
-adminRouter.post("/portfolio", async (req, res) => {
+adminRouter.post("/portfolio", asyncHandler(async (req, res) => {
   const payload = buildPayload(req.body || {});
   if (!payload.title) return res.status(400).json({ error: "Titlul este obligatoriu." });
   if (payload.project_url && !isHttpUrl(payload.project_url)) return res.status(400).json({ error: "Project URL invalid." });
@@ -250,80 +232,72 @@ adminRouter.post("/portfolio", async (req, res) => {
   if (payload.cta_button_url && !isAssetOrHttpUrl(payload.cta_button_url)) return res.status(400).json({ error: "CTA URL invalid." });
 
   const db = await getDb();
-  payload.slug = await buildUniqueSlug(db, payload.slug);
+  payload.slug = await ensureUniqueSlug(db, "portfolio_projects", payload.slug);
 
-  try {
-    const result = await db.run(
-      `INSERT INTO portfolio_projects
-      (title, slug, project_type, short_description, objective, built_items_json, results, technologies_json, image_url, project_url, sort_order, is_featured, is_active, seo_title, seo_description,
-       long_description, live_url, image_alt, client_name, initial_problem, target_audience, tone_style, built_items_detailed_json, results_items_json, gallery_json, project_sections_json,
-       hero_title, hero_subtitle, challenge_title, challenge_text, solution_title, solution_text, results_title, results_text, cta_title, cta_text, cta_button_text, cta_button_url, og_image, canonical_url, focus_keyword, robots)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        payload.title,
-        payload.slug,
-        payload.project_type,
-        payload.short_description,
-        payload.objective,
-        stringifyJsonField(payload.built_items_json),
-        payload.results,
-        stringifyJsonField(payload.technologies_json),
-        payload.image_url,
-        payload.project_url,
-        payload.sort_order,
-        payload.is_featured,
-        payload.is_active,
-        payload.seo_title,
-        payload.seo_description,
-        payload.long_description,
-        payload.live_url,
-        payload.image_alt,
-        payload.client_name,
-        payload.initial_problem,
-        payload.target_audience,
-        payload.tone_style,
-        stringifyJsonField(payload.built_items_detailed_json),
-        stringifyJsonField(payload.results_items_json),
-        stringifyJsonField(payload.gallery_json),
-        stringifyJsonField(payload.project_sections_json),
-        payload.hero_title,
-        payload.hero_subtitle,
-        payload.challenge_title,
-        payload.challenge_text,
-        payload.solution_title,
-        payload.solution_text,
-        payload.results_title,
-        payload.results_text,
-        payload.cta_title,
-        payload.cta_text,
-        payload.cta_button_text,
-        payload.cta_button_url,
-        payload.og_image,
-        payload.canonical_url,
-        payload.focus_keyword,
-        payload.robots
-      ]
-    );
+  const result = await db.run(
+    `INSERT INTO portfolio_projects
+    (title, slug, project_type, short_description, objective, built_items_json, results, technologies_json, image_url, project_url, sort_order, is_featured, is_active, seo_title, seo_description,
+     long_description, live_url, image_alt, client_name, initial_problem, target_audience, tone_style, built_items_detailed_json, results_items_json, gallery_json, project_sections_json,
+     hero_title, hero_subtitle, challenge_title, challenge_text, solution_title, solution_text, results_title, results_text, cta_title, cta_text, cta_button_text, cta_button_url, og_image, canonical_url, focus_keyword, robots)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      payload.title,
+      payload.slug,
+      payload.project_type,
+      payload.short_description,
+      payload.objective,
+      stringifyJsonField(payload.built_items_json),
+      payload.results,
+      stringifyJsonField(payload.technologies_json),
+      payload.image_url,
+      payload.project_url,
+      payload.sort_order,
+      payload.is_featured,
+      payload.is_active,
+      payload.seo_title,
+      payload.seo_description,
+      payload.long_description,
+      payload.live_url,
+      payload.image_alt,
+      payload.client_name,
+      payload.initial_problem,
+      payload.target_audience,
+      payload.tone_style,
+      stringifyJsonField(payload.built_items_detailed_json),
+      stringifyJsonField(payload.results_items_json),
+      stringifyJsonField(payload.gallery_json),
+      stringifyJsonField(payload.project_sections_json),
+      payload.hero_title,
+      payload.hero_subtitle,
+      payload.challenge_title,
+      payload.challenge_text,
+      payload.solution_title,
+      payload.solution_text,
+      payload.results_title,
+      payload.results_text,
+      payload.cta_title,
+      payload.cta_text,
+      payload.cta_button_text,
+      payload.cta_button_url,
+      payload.og_image,
+      payload.canonical_url,
+      payload.focus_keyword,
+      payload.robots
+    ]
+  );
 
-    const created = await db.get("SELECT * FROM portfolio_projects WHERE id = ?", [result.lastID]);
-    return res.status(201).json({ ok: true, data: mapPortfolio(created) });
-  } catch (error) {
-    if (String(error?.message || "").includes("UNIQUE constraint failed: portfolio_projects.slug")) {
-      return res.status(409).json({ error: "Slug-ul există deja." });
-    }
-    console.error("[portfolio.admin.create] error", error);
-    return res.status(500).json({ error: "Nu am putut salva proiectul." });
-  }
-});
+  const created = await db.get("SELECT * FROM portfolio_projects WHERE id = ?", [result.lastID]);
+  return res.status(201).json({ ok: true, data: mapPortfolio(created) });
+}));
 
-adminRouter.get("/portfolio/:id", async (req, res) => {
+adminRouter.get("/portfolio/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM portfolio_projects WHERE id = ?", [toInt(req.params.id, 0)]);
   if (!row) return res.status(404).json({ error: "Not found" });
   return res.json(mapPortfolio(row));
-});
+}));
 
-adminRouter.put("/portfolio/:id", async (req, res) => {
+adminRouter.put("/portfolio/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const payload = buildPayload(req.body || {});
   if (!payload.title) return res.status(400).json({ error: "Titlul este obligatoriu." });
@@ -338,85 +312,77 @@ adminRouter.put("/portfolio/:id", async (req, res) => {
   const existing = await db.get("SELECT id FROM portfolio_projects WHERE id = ?", [id]);
   if (!existing) return res.status(404).json({ error: "Not found" });
 
-  payload.slug = await buildUniqueSlug(db, payload.slug, id);
+  payload.slug = await ensureUniqueSlug(db, "portfolio_projects", payload.slug, id);
 
-  try {
-    await db.run(
-      `UPDATE portfolio_projects SET
-        title=?, slug=?, project_type=?, short_description=?, objective=?, built_items_json=?, results=?, technologies_json=?,
-        image_url=?, project_url=?, sort_order=?, is_featured=?, is_active=?, seo_title=?, seo_description=?, updated_at=?,
-        long_description=?, live_url=?, image_alt=?, client_name=?, initial_problem=?, target_audience=?, tone_style=?, built_items_detailed_json=?, results_items_json=?, gallery_json=?, project_sections_json=?,
-        hero_title=?, hero_subtitle=?, challenge_title=?, challenge_text=?, solution_title=?, solution_text=?, results_title=?, results_text=?, cta_title=?, cta_text=?, cta_button_text=?, cta_button_url=?, og_image=?, canonical_url=?, focus_keyword=?, robots=?
-        WHERE id=?`,
-      [
-        payload.title,
-        payload.slug,
-        payload.project_type,
-        payload.short_description,
-        payload.objective,
-        stringifyJsonField(payload.built_items_json),
-        payload.results,
-        stringifyJsonField(payload.technologies_json),
-        payload.image_url,
-        payload.project_url,
-        payload.sort_order,
-        payload.is_featured,
-        payload.is_active,
-        payload.seo_title,
-        payload.seo_description,
-        nowIso(),
-        payload.long_description,
-        payload.live_url,
-        payload.image_alt,
-        payload.client_name,
-        payload.initial_problem,
-        payload.target_audience,
-        payload.tone_style,
-        stringifyJsonField(payload.built_items_detailed_json),
-        stringifyJsonField(payload.results_items_json),
-        stringifyJsonField(payload.gallery_json),
-        stringifyJsonField(payload.project_sections_json),
-        payload.hero_title,
-        payload.hero_subtitle,
-        payload.challenge_title,
-        payload.challenge_text,
-        payload.solution_title,
-        payload.solution_text,
-        payload.results_title,
-        payload.results_text,
-        payload.cta_title,
-        payload.cta_text,
-        payload.cta_button_text,
-        payload.cta_button_url,
-        payload.og_image,
-        payload.canonical_url,
-        payload.focus_keyword,
-        payload.robots,
-        id
-      ]
-    );
+  await db.run(
+    `UPDATE portfolio_projects SET
+      title=?, slug=?, project_type=?, short_description=?, objective=?, built_items_json=?, results=?, technologies_json=?,
+      image_url=?, project_url=?, sort_order=?, is_featured=?, is_active=?, seo_title=?, seo_description=?, updated_at=?,
+      long_description=?, live_url=?, image_alt=?, client_name=?, initial_problem=?, target_audience=?, tone_style=?, built_items_detailed_json=?, results_items_json=?, gallery_json=?, project_sections_json=?,
+      hero_title=?, hero_subtitle=?, challenge_title=?, challenge_text=?, solution_title=?, solution_text=?, results_title=?, results_text=?, cta_title=?, cta_text=?, cta_button_text=?, cta_button_url=?, og_image=?, canonical_url=?, focus_keyword=?, robots=?
+      WHERE id=?`,
+    [
+      payload.title,
+      payload.slug,
+      payload.project_type,
+      payload.short_description,
+      payload.objective,
+      stringifyJsonField(payload.built_items_json),
+      payload.results,
+      stringifyJsonField(payload.technologies_json),
+      payload.image_url,
+      payload.project_url,
+      payload.sort_order,
+      payload.is_featured,
+      payload.is_active,
+      payload.seo_title,
+      payload.seo_description,
+      nowIso(),
+      payload.long_description,
+      payload.live_url,
+      payload.image_alt,
+      payload.client_name,
+      payload.initial_problem,
+      payload.target_audience,
+      payload.tone_style,
+      stringifyJsonField(payload.built_items_detailed_json),
+      stringifyJsonField(payload.results_items_json),
+      stringifyJsonField(payload.gallery_json),
+      stringifyJsonField(payload.project_sections_json),
+      payload.hero_title,
+      payload.hero_subtitle,
+      payload.challenge_title,
+      payload.challenge_text,
+      payload.solution_title,
+      payload.solution_text,
+      payload.results_title,
+      payload.results_text,
+      payload.cta_title,
+      payload.cta_text,
+      payload.cta_button_text,
+      payload.cta_button_url,
+      payload.og_image,
+      payload.canonical_url,
+      payload.focus_keyword,
+      payload.robots,
+      id
+    ]
+  );
 
-    const updated = await db.get("SELECT * FROM portfolio_projects WHERE id = ?", [id]);
-    return res.json({ ok: true, data: mapPortfolio(updated) });
-  } catch (error) {
-    if (String(error?.message || "").includes("UNIQUE constraint failed: portfolio_projects.slug")) {
-      return res.status(409).json({ error: "Slug-ul există deja." });
-    }
-    console.error("[portfolio.admin.update] error", error);
-    return res.status(500).json({ error: "Nu am putut salva proiectul." });
-  }
-});
+  const updated = await db.get("SELECT * FROM portfolio_projects WHERE id = ?", [id]);
+  return res.json({ ok: true, data: mapPortfolio(updated) });
+}));
 
-adminRouter.delete("/portfolio/:id", async (req, res) => {
+adminRouter.delete("/portfolio/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   await db.run("DELETE FROM portfolio_projects WHERE id = ?", [toInt(req.params.id, 0)]);
   return res.json({ ok: true });
-});
+}));
 
-adminRouter.post("/portfolio/preview", async (req, res) => {
+adminRouter.post("/portfolio/preview", asyncHandler(async (req, res) => {
   const targetUrl = sanitizeText(req.body?.url, 1000);
   if (!targetUrl || !isHttpUrl(targetUrl)) {
-    return res.status(400).json({ error: "URL invalid. Folosește http:// sau https://." });
+    return res.status(400).json({ error: "URL invalid. Foloseste http:// sau https://." });
   }
   if (isPrivateHost(targetUrl)) {
     return res.status(400).json({ error: "URL-ul este blocat din motive de securitate." });
@@ -424,7 +390,7 @@ adminRouter.post("/portfolio/preview", async (req, res) => {
 
   const screenshotApiTemplate = String(process.env.SCREENSHOT_API_URL || "").trim();
   if (!screenshotApiTemplate) {
-    return res.status(503).json({ error: "Preview automat indisponibil. Poți urca manual o imagine." });
+    return res.status(503).json({ error: "Preview automat indisponibil. Poti urca manual o imagine." });
   }
 
   const encodedTarget = encodeURIComponent(targetUrl);
@@ -456,7 +422,7 @@ adminRouter.post("/portfolio/preview", async (req, res) => {
     if (!response.ok || !contentType.startsWith("image/")) {
       return res
         .status(502)
-        .json({ error: "Nu am putut genera preview-ul automat. Poți încerca din nou sau urca manual o imagine." });
+        .json({ error: "Nu am putut genera preview-ul automat. Poti incerca din nou sau urca manual o imagine." });
     }
 
     const extensionByType = {
@@ -483,11 +449,11 @@ adminRouter.post("/portfolio/preview", async (req, res) => {
     console.error("[portfolio.preview] error", error);
     return res
       .status(502)
-      .json({ error: "Nu am putut genera preview-ul automat. Poți încerca din nou sau poți urca o imagine manual." });
+      .json({ error: "Nu am putut genera preview-ul automat. Poti incerca din nou sau poti urca o imagine manual." });
   } finally {
     clearTimeout(timeout);
   }
-});
+}));
 
 module.exports = {
   publicRouter,

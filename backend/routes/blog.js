@@ -4,7 +4,9 @@ const { getDb, nowIso, stringifyJsonField, parseJsonField } = require("../databa
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt, slugify } = require("../utils/security");
 const { normalizeDeep } = require("../utils/encoding");
 const { analyzeBlogPost } = require("../services/seoAnalyzer");
+const { ensureUniqueSlug } = require("../utils/slugUtils");
 const aiService = require("../services/aiService");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -96,21 +98,7 @@ function estimateReadingTime(content) {
   return Math.max(1, Math.ceil(words / 220));
 }
 
-async function ensureUniqueSlug(db, table, slug, currentId = null) {
-  let base = slugify(slug);
-  if (!base) base = "articol";
-  let candidate = base;
-  let index = 2;
-
-  while (true) {
-    const row = await db.get(`SELECT id FROM ${table} WHERE slug = ?`, [candidate]);
-    if (!row || (currentId && row.id === currentId)) {
-      return candidate;
-    }
-    candidate = `${base}-${index}`;
-    index += 1;
-  }
-}
+// ensureUniqueSlug is now imported from utils/slugUtils.js
 
 async function getAiSettingsRow(db) {
   let row = await db.get("SELECT * FROM ai_settings ORDER BY id ASC LIMIT 1");
@@ -210,15 +198,15 @@ function parsePageLimit(query = {}) {
   return { page, limit, offset: (page - 1) * limit };
 }
 
-publicRouter.get("/blog-categories", async (_req, res) => {
+publicRouter.get("/blog-categories", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all(
     "SELECT * FROM blog_categories WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
   );
   return ok(res, rows.map(mapCategory));
-});
+}));
 
-publicRouter.get("/blog", async (req, res) => {
+publicRouter.get("/blog", asyncHandler(async (req, res) => {
   const db = await getDb();
   const { page, limit, offset } = parsePageLimit(req.query || {});
   const search = sanitizeText(req.query.search || "", 120);
@@ -252,9 +240,15 @@ publicRouter.get("/blog", async (req, res) => {
     params
   );
 
+  // Exclude heavy `content` column from list — full content only needed on detail view
   const rows = await db.all(
     `SELECT
-      p.*,
+      p.id, p.title, p.slug, p.excerpt, p.status,
+      p.featured_image, p.featured_image_alt,
+      p.category_id, p.tags_json, p.focus_keyword,
+      p.seo_title, p.seo_description, p.og_title, p.og_description, p.og_image,
+      p.canonical_url, p.robots, p.seo_score,
+      p.reading_time_minutes, p.published_at, p.created_at, p.updated_at,
       c.name AS category_name,
       c.slug AS category_slug
      FROM blog_posts p
@@ -274,9 +268,9 @@ publicRouter.get("/blog", async (req, res) => {
       totalPages: Math.max(1, Math.ceil((totalRow?.total || 0) / limit))
     }
   });
-});
+}));
 
-publicRouter.get("/blog/:slug", async (req, res) => {
+publicRouter.get("/blog/:slug", asyncHandler(async (req, res) => {
   const db = await getDb();
   const slug = sanitizeText(req.params.slug, 255);
   const row = await db.get(
@@ -308,9 +302,9 @@ publicRouter.get("/blog/:slug", async (req, res) => {
     post: mapPost(row),
     similar
   });
-});
+}));
 
-adminRouter.get("/blog/posts", async (req, res) => {
+adminRouter.get("/blog/posts", asyncHandler(async (req, res) => {
   const db = await getDb();
   const { page, limit, offset } = parsePageLimit(req.query || {});
   const status = sanitizeText(req.query.status || "", 40).toLowerCase();
@@ -360,9 +354,9 @@ adminRouter.get("/blog/posts", async (req, res) => {
       totalPages: Math.max(1, Math.ceil((totalRow?.total || 0) / limit))
     }
   });
-});
+}));
 
-adminRouter.post("/blog/posts", async (req, res) => {
+adminRouter.post("/blog/posts", asyncHandler(async (req, res) => {
   const db = await getDb();
   const payload = buildPostPayload(req.body || {});
   if (!payload.title) return fail(res, 400, "Titlul este obligatoriu.", "VALIDATION_ERROR");
@@ -412,9 +406,9 @@ adminRouter.post("/blog/posts", async (req, res) => {
 
   const created = await db.get("SELECT * FROM blog_posts WHERE id = ?", [result.lastID]);
   return ok(res, mapPost(created), "Articol creat.", 201);
-});
+}));
 
-adminRouter.get("/blog/posts/:id", async (req, res) => {
+adminRouter.get("/blog/posts/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   const row = await db.get(
@@ -429,9 +423,9 @@ adminRouter.get("/blog/posts/:id", async (req, res) => {
   );
   if (!row) return fail(res, 404, "Articolul nu a fost găsit.", "NOT_FOUND");
   return ok(res, mapPost(row));
-});
+}));
 
-adminRouter.put("/blog/posts/:id", async (req, res) => {
+adminRouter.put("/blog/posts/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   const existing = await db.get("SELECT * FROM blog_posts WHERE id = ?", [id]);
@@ -485,22 +479,22 @@ adminRouter.put("/blog/posts/:id", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM blog_posts WHERE id = ?", [id]);
   return ok(res, mapPost(updated), "Articol actualizat.");
-});
+}));
 
-adminRouter.delete("/blog/posts/:id", async (req, res) => {
+adminRouter.delete("/blog/posts/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   await db.run("DELETE FROM blog_posts WHERE id = ?", [id]);
   return ok(res, { id }, "Articol șters.");
-});
+}));
 
-adminRouter.get("/blog/categories", async (_req, res) => {
+adminRouter.get("/blog/categories", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM blog_categories ORDER BY sort_order ASC, name ASC");
   return ok(res, rows.map(mapCategory));
-});
+}));
 
-adminRouter.post("/blog/categories", async (req, res) => {
+adminRouter.post("/blog/categories", asyncHandler(async (req, res) => {
   const db = await getDb();
   const name = sanitizeText(req.body.name, 120);
   if (!name) return fail(res, 400, "Numele categoriei este obligatoriu.", "VALIDATION_ERROR");
@@ -522,9 +516,9 @@ adminRouter.post("/blog/categories", async (req, res) => {
 
   const created = await db.get("SELECT * FROM blog_categories WHERE id = ?", [result.lastID]);
   return ok(res, mapCategory(created), "Categorie creată.", 201);
-});
+}));
 
-adminRouter.put("/blog/categories/:id", async (req, res) => {
+adminRouter.put("/blog/categories/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   const existing = await db.get("SELECT * FROM blog_categories WHERE id = ?", [id]);
@@ -551,17 +545,17 @@ adminRouter.put("/blog/categories/:id", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM blog_categories WHERE id = ?", [id]);
   return ok(res, mapCategory(updated), "Categorie actualizată.");
-});
+}));
 
-adminRouter.delete("/blog/categories/:id", async (req, res) => {
+adminRouter.delete("/blog/categories/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   await db.run("UPDATE blog_posts SET category_id = NULL WHERE category_id = ?", [id]);
   await db.run("DELETE FROM blog_categories WHERE id = ?", [id]);
   return ok(res, { id }, "Categorie ștearsă.");
-});
+}));
 
-adminRouter.post("/blog/posts/:id/analyze-seo", async (req, res) => {
+adminRouter.post("/blog/posts/:id/analyze-seo", asyncHandler(async (req, res) => {
   const db = await getDb();
   const id = toInt(req.params.id, 0);
   const row = await db.get("SELECT * FROM blog_posts WHERE id = ?", [id]);
@@ -574,9 +568,9 @@ adminRouter.post("/blog/posts/:id/analyze-seo", async (req, res) => {
   );
 
   return ok(res, analysis, "Analiza SEO a fost actualizată.");
-});
+}));
 
-adminRouter.get("/ai/settings", async (_req, res) => {
+adminRouter.get("/ai/settings", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const settings = await getAiSettingsRow(db);
   const { gemini_api_key, openai_api_key, ...safeSettings } = settings;
@@ -589,9 +583,9 @@ adminRouter.get("/ai/settings", async (_req, res) => {
       openai: Boolean(openai_api_key || process.env.OPENAI_API_KEY)
     }
   });
-});
+}));
 
-adminRouter.put("/ai/settings", async (req, res) => {
+adminRouter.put("/ai/settings", asyncHandler(async (req, res) => {
   const db = await getDb();
   const current = await getAiSettingsRow(db);
   const provider = VALID_PROVIDERS.has(req.body.provider) ? req.body.provider : current.provider;
@@ -639,7 +633,7 @@ adminRouter.put("/ai/settings", async (req, res) => {
       openai: Boolean(oak || process.env.OPENAI_API_KEY)
     }
   }, "Setările AI au fost salvate.");
-});
+}));
 
 function resolveProviderAndModel(payload = {}, settings = {}) {
   const providerFromPayload = sanitizeText(payload.provider || "", 20).toLowerCase();

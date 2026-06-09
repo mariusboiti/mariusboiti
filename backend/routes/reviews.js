@@ -1,27 +1,28 @@
 const express = require("express");
 const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
 
-publicRouter.get("/reviews", async (_req, res) => {
+publicRouter.get("/reviews", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const reviews = await db.all(
     "SELECT * FROM google_reviews WHERE is_active = 1 ORDER BY sort_order ASC, id ASC"
   );
   return res.json(reviews);
-});
+}));
 
-adminRouter.get("/reviews", async (_req, res) => {
+adminRouter.get("/reviews", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const reviews = await db.all(
     "SELECT * FROM google_reviews ORDER BY sort_order ASC, id ASC"
   );
   return res.json(reviews);
-});
+}));
 
-adminRouter.post("/reviews", async (req, res) => {
+adminRouter.post("/reviews", asyncHandler(async (req, res) => {
   const payload = {
     reviewer_name: sanitizeText(req.body.reviewer_name, 200),
     rating: Math.min(5, Math.max(1, toInt(req.body.rating, 5))),
@@ -51,10 +52,10 @@ adminRouter.post("/reviews", async (req, res) => {
     ]
   );
   const review = await db.get("SELECT * FROM google_reviews WHERE id = ?", [result.lastID]);
-  return res.json({ ok: true, data: review });
-});
+  return res.status(201).json({ ok: true, data: review });
+}));
 
-adminRouter.put("/reviews/:id", async (req, res) => {
+adminRouter.put("/reviews/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID invalid." });
 
@@ -88,20 +89,20 @@ adminRouter.put("/reviews/:id", async (req, res) => {
     ]
   );
   const review = await db.get("SELECT * FROM google_reviews WHERE id = ?", [id]);
-  if (!review) return res.status(404).json({ error: "Recenzie negăsită." });
+  if (!review) return res.status(404).json({ error: "Recenzie negasita." });
   return res.json({ ok: true, data: review });
-});
+}));
 
-adminRouter.delete("/reviews/:id", async (req, res) => {
+adminRouter.delete("/reviews/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   if (!id) return res.status(400).json({ error: "ID invalid." });
 
   const db = await getDb();
   const existing = await db.get("SELECT id FROM google_reviews WHERE id = ?", [id]);
-  if (!existing) return res.status(404).json({ error: "Recenzie negăsită." });
+  if (!existing) return res.status(404).json({ error: "Recenzie negasita." });
 
   await db.run("DELETE FROM google_reviews WHERE id = ?", [id]);
   return res.json({ ok: true });
-});
+}));
 
 module.exports = { publicRouter, adminRouter };

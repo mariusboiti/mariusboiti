@@ -1,6 +1,7 @@
 const express = require("express");
 const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -41,21 +42,21 @@ function buildPayload(body = {}) {
   return { name, logo_url, alt_text, project_url, sort_order, is_active, display_scale, background_mode, invert_on_dark };
 }
 
-publicRouter.get("/project-logos", async (_req, res) => {
+publicRouter.get("/project-logos", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all(
     "SELECT id, name, logo_url, alt_text, project_url, sort_order, is_active, display_scale, background_mode, invert_on_dark FROM project_logos WHERE is_active = 1 ORDER BY sort_order ASC, id DESC"
   );
   return res.json(rows.map(mapLogo));
-});
+}));
 
-adminRouter.get("/project-logos", async (_req, res) => {
+adminRouter.get("/project-logos", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM project_logos ORDER BY sort_order ASC, id DESC");
   return res.json(rows.map(mapLogo));
-});
+}));
 
-adminRouter.post("/project-logos", async (req, res) => {
+adminRouter.post("/project-logos", asyncHandler(async (req, res) => {
   const payload = buildPayload(req.body || {});
   if (!payload.name) return res.status(400).json({ error: "Numele este obligatoriu." });
   if (!payload.logo_url) return res.status(400).json({ error: "Logo URL este obligatoriu." });
@@ -68,9 +69,9 @@ adminRouter.post("/project-logos", async (req, res) => {
   );
   const created = await db.get("SELECT * FROM project_logos WHERE id = ?", [result.lastID]);
   return res.status(201).json({ ok: true, data: mapLogo(created) });
-});
+}));
 
-adminRouter.put("/project-logos/:id", async (req, res) => {
+adminRouter.put("/project-logos/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const payload = buildPayload(req.body || {});
   if (!payload.name) return res.status(400).json({ error: "Numele este obligatoriu." });
@@ -89,13 +90,13 @@ adminRouter.put("/project-logos/:id", async (req, res) => {
   );
   const updated = await db.get("SELECT * FROM project_logos WHERE id = ?", [id]);
   return res.json({ ok: true, data: mapLogo(updated) });
-});
+}));
 
-adminRouter.delete("/project-logos/:id", async (req, res) => {
+adminRouter.delete("/project-logos/:id", asyncHandler(async (req, res) => {
   const db = await getDb();
   await db.run("DELETE FROM project_logos WHERE id = ?", [toInt(req.params.id, 0)]);
   return res.json({ ok: true });
-});
+}));
 
 module.exports = {
   publicRouter,

@@ -1,9 +1,10 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const multer = require("multer");
-const { getDb } = require("../database");
+const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText, toInt } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -59,19 +60,19 @@ const uploadVideo = multer({
     const ext = path.extname(file.originalname || "").toLowerCase();
     const extAllowed = [".mp4", ".webm", ".mov"].includes(ext);
     if (!allowedVideoMimeTypes.has(file.mimetype) && !extAllowed) {
-      return cb(new Error("Doar fișiere video mp4/webm/mov sunt permise."));
+      return cb(new Error("Doar fisiere video mp4/webm/mov sunt permise."));
     }
     return cb(null, true);
   }
 });
 
-adminRouter.post("/media/upload", upload.single("file"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "Fișier lipsă." });
+adminRouter.post("/media/upload", upload.single("file"), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Fisier lipsa." });
 
   const db = await getDb();
   const url = `/uploads/${req.file.filename}`;
   const result = await db.run(
-    `INSERT INTO media (filename, original_name, mime_type, size, url, alt_text) VALUES (?, ?, ?, ?, ?, ?)` ,
+    `INSERT INTO media (filename, original_name, mime_type, size, url, alt_text) VALUES (?, ?, ?, ?, ?, ?)`,
     [
       req.file.filename,
       sanitizeText(req.file.originalname, 255),
@@ -90,33 +91,33 @@ adminRouter.post("/media/upload", upload.single("file"), async (req, res) => {
     filename: req.file.filename,
     original_name: req.file.originalname
   });
-});
+}));
 
-adminRouter.post("/media/upload-video", uploadVideo.single("file"), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "Fișier lipsă." });
+adminRouter.post("/media/upload-video", uploadVideo.single("file"), asyncHandler(async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Fisier lipsa." });
   const url = `/uploads/${req.file.filename}`;
+  const db = await getDb();
+  const result = await db.run(
+    "INSERT INTO media (filename, original_name, mime_type, size, url, alt_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [req.file.filename, req.file.originalname, req.file.mimetype, req.file.size, url, "", nowIso()]
+  );
+  const created = await db.get("SELECT * FROM media WHERE id = ?", [result.lastID]);
   return res.status(201).json({
     ok: true,
-    data: {
-      filename: req.file.filename,
-      original_name: req.file.originalname,
-      mime_type: req.file.mimetype,
-      size: req.file.size,
-      url
-    },
+    data: created,
     url,
     filename: req.file.filename,
     original_name: req.file.originalname
   });
-});
+}));
 
-adminRouter.get("/media", async (_req, res) => {
+adminRouter.get("/media", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const rows = await db.all("SELECT * FROM media ORDER BY created_at DESC");
   return res.json(rows);
-});
+}));
 
-adminRouter.put("/media/:id", async (req, res) => {
+adminRouter.put("/media/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const db = await getDb();
   const existing = await db.get("SELECT * FROM media WHERE id = ?", [id]);
@@ -125,9 +126,9 @@ adminRouter.put("/media/:id", async (req, res) => {
   await db.run("UPDATE media SET alt_text = ? WHERE id = ?", [sanitizeNullable(req.body.alt_text, 255), id]);
   const updated = await db.get("SELECT * FROM media WHERE id = ?", [id]);
   return res.json({ ok: true, data: updated });
-});
+}));
 
-adminRouter.delete("/media/:id", async (req, res) => {
+adminRouter.delete("/media/:id", asyncHandler(async (req, res) => {
   const id = toInt(req.params.id, 0);
   const db = await getDb();
   const existing = await db.get("SELECT * FROM media WHERE id = ?", [id]);
@@ -140,7 +141,7 @@ adminRouter.delete("/media/:id", async (req, res) => {
 
   await db.run("DELETE FROM media WHERE id = ?", [id]);
   return res.json({ ok: true });
-});
+}));
 
 module.exports = {
   publicRouter,

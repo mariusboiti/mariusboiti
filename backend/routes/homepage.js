@@ -1,26 +1,27 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, nowIso, stringifyJsonField } = require("../database");
 const { mapHomepageSection } = require("../utils/formatters");
 const { sanitizeNullable, sanitizeText, toBoolInt, toInt, parseJsonInput } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
 
-publicRouter.get("/homepage", async (_req, res) => {
+publicRouter.get("/homepage", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const sections = await db.all(
     "SELECT * FROM homepage_sections WHERE is_active = 1 ORDER BY sort_order ASC, id ASC"
   );
   return res.json(sections.map(mapHomepageSection));
-});
+}));
 
-adminRouter.get("/homepage", async (_req, res) => {
+adminRouter.get("/homepage", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const sections = await db.all("SELECT * FROM homepage_sections ORDER BY sort_order ASC, id ASC");
   return res.json(sections.map(mapHomepageSection));
-});
+}));
 
-adminRouter.put("/homepage/:sectionKey", async (req, res) => {
+adminRouter.put("/homepage/:sectionKey", asyncHandler(async (req, res) => {
   const sectionKey = sanitizeText(req.params.sectionKey, 120);
   const payload = {
     title: sanitizeNullable(req.body.title, 400),
@@ -84,7 +85,7 @@ adminRouter.put("/homepage/:sectionKey", async (req, res) => {
 
   const section = await db.get("SELECT * FROM homepage_sections WHERE section_key = ?", [sectionKey]);
   return res.json({ ok: true, data: mapHomepageSection(section) });
-});
+}));
 
 module.exports = {
   publicRouter,

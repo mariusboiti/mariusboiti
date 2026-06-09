@@ -1,23 +1,24 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, nowIso } = require("../database");
 const { sanitizeNullable, sanitizeText } = require("../utils/security");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
 
-publicRouter.get("/settings", async (_req, res) => {
+publicRouter.get("/settings", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM site_settings ORDER BY id DESC LIMIT 1");
   return res.json(row || {});
-});
+}));
 
-adminRouter.get("/settings", async (_req, res) => {
+adminRouter.get("/settings", asyncHandler(async (_req, res) => {
   const db = await getDb();
   const row = await db.get("SELECT * FROM site_settings ORDER BY id DESC LIMIT 1");
   return res.json(row || {});
-});
+}));
 
-adminRouter.put("/settings", async (req, res) => {
+adminRouter.put("/settings", asyncHandler(async (req, res) => {
   const payload = {
     site_name: sanitizeText(req.body.site_name, 255),
     tagline: sanitizeNullable(req.body.tagline, 500),
@@ -92,7 +93,7 @@ adminRouter.put("/settings", async (req, res) => {
 
   const updated = await db.get("SELECT * FROM site_settings ORDER BY id DESC LIMIT 1");
   return res.json({ ok: true, data: updated });
-});
+}));
 
 module.exports = {
   publicRouter,

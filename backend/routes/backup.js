@@ -1,5 +1,6 @@
-﻿const express = require("express");
+const express = require("express");
 const { getDb, stringifyJsonField } = require("../database");
+const { asyncHandler } = require("../utils/asyncHandler");
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -13,28 +14,34 @@ const EXPORT_TABLES = [
   "faq_items",
   "calculator_options",
   "calculator_settings",
+  "leads",
   "seo_pages",
+  "media",
+  "project_logos",
   "blog_categories",
   "blog_posts",
-  "ai_settings"
+  "ai_settings",
+  "google_reviews"
 ];
 
-adminRouter.get("/backup/export", async (_req, res) => {
+adminRouter.get("/backup/export", asyncHandler(async (_req, res) => {
   const db = await getDb();
-  const payload = {
+
+  // Parallelise all table reads instead of sequential await-in-loop
+  const results = await Promise.all(
+    EXPORT_TABLES.map((table) => db.all(`SELECT * FROM ${table} ORDER BY id ASC`))
+  );
+
+  const data = Object.fromEntries(EXPORT_TABLES.map((table, i) => [table, results[i]]));
+
+  return res.json({
     exported_at: new Date().toISOString(),
-    version: 1,
-    data: {}
-  };
+    version: 2,
+    data
+  });
+}));
 
-  for (const table of EXPORT_TABLES) {
-    payload.data[table] = await db.all(`SELECT * FROM ${table} ORDER BY id ASC`);
-  }
-
-  return res.json(payload);
-});
-
-adminRouter.post("/backup/import", async (req, res) => {
+adminRouter.post("/backup/import", asyncHandler(async (req, res) => {
   const input = req.body;
   if (!input || typeof input !== "object" || !input.data || typeof input.data !== "object") {
     return res.status(400).json({ error: "Payload backup invalid." });
@@ -336,9 +343,9 @@ adminRouter.post("/backup/import", async (req, res) => {
     return res.json({ ok: true, message: "Backup importat cu succes." });
   } catch (error) {
     await db.exec("ROLLBACK");
-    return res.status(400).json({ error: `Import eșuat: ${error.message}` });
+    return res.status(400).json({ error: `Import esuat: ${error.message}` });
   }
-});
+}));
 
 module.exports = {
   publicRouter,

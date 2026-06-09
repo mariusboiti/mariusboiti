@@ -9,7 +9,7 @@ const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 
-const { getDb, initSchema } = require("./database");
+const { getDb, initSchema } = require("./database"); // getDb used in /health
 const { requireAuth } = require("./middleware/auth");
 
 const authRoutes = require("./routes/auth");
@@ -310,22 +310,51 @@ app.get(/^\/([a-z0-9-]+)\/?$/i, (req, res, next) => {
   return next();
 });
 
-app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+app.get("/health", async (_req, res) => {
+  try {
+    const db = await getDb();
+    await db.get("SELECT 1");
+    res.json({ ok: true, db: "ok" });
+  } catch (_err) {
+    res.status(503).json({ ok: false, db: "error" });
+  }
 });
 
-app.use((err, _req, res, _next) => {
-  if (err && err.message) {
-    return res.status(400).json({ error: err.message });
+// Global error handler — distinguishes client errors from server errors
+// and never leaks raw DB error messages to the public.
+app.use((err, req, res, _next) => {
+  const isClientError = err.status && err.status >= 400 && err.status < 500;
+  const status = err.status || (isClientError ? 400 : 500);
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!isProd || status >= 500) {
+    console.error(`[${new Date().toISOString()}] ${req.method} ${req.path} →`, err.message || err);
   }
-  return res.status(500).json({ error: "Server error" });
+
+  const message = isClientError && err.message
+    ? err.message
+    : "A apărut o eroare de server. Încearcă din nou.";
+
+  return res.status(status).json({ error: message });
 });
+
+async function assertConfig() {
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET === "change-this-secret") {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] JWT_SECRET is not set or uses the default placeholder. Set a strong secret in .env before running in production.");
+      process.exit(1);
+    } else {
+      console.warn("[WARN] JWT_SECRET is using the default placeholder. Set a strong secret in .env.");
+    }
+  }
+}
 
 async function bootstrap() {
+  await assertConfig();
   await initSchema();
 
   app.listen(PORT, () => {
-    console.log(`Backend running on http://localhost:${PORT}`);
+    console.log(`[${new Date().toISOString()}] Backend running on http://localhost:${PORT} (${process.env.NODE_ENV || "development"})`);
   });
 }
 
