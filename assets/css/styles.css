@@ -5189,7 +5189,8 @@ body[data-public-page="blog"] .hero.hero-compact {
 
 #mb-chatbot {
   position: fixed;
-  bottom: 24px;
+  /* Sit above the back-to-top button (50px tall at bottom:24px → 24+50+18=92) */
+  bottom: 92px;
   right: 24px;
   z-index: 9000;
   font-family: var(--mb-font-body);
@@ -5246,6 +5247,12 @@ body[data-public-page="blog"] .hero.hero-compact {
 }
 
 /* ── Chat window ── */
+/* display:flex on .mb-chat-window overrides the UA-sheet display:none from [hidden].
+   This rule restores the correct hide behaviour when JS sets element.hidden = true. */
+.mb-chat-window[hidden] {
+  display: none !important;
+}
+
 .mb-chat-window {
   position: absolute;
   bottom: 70px;
@@ -5459,7 +5466,8 @@ body[data-public-page="blog"] .hero.hero-compact {
 /* ── Mobile ── */
 @media (max-width: 480px) {
   #mb-chatbot {
-    bottom: 16px;
+    /* Above back-to-top (50px at bottom:16px → 16+50+14=80) */
+    bottom: 80px;
     right: 16px;
   }
   .mb-chat-window {
