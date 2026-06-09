@@ -28,6 +28,7 @@ const backupRoutes = require("./routes/backup");
 const blogRoutes = require("./routes/blog");
 const projectLogosRoutes = require("./routes/project-logos");
 const reviewsRoutes = require("./routes/reviews");
+const chatRoutes = require("./routes/chat");
 
 const app = express();
 app.set("trust proxy", 1); // Passenger/LiteSpeed proxy on shared hosting
@@ -97,6 +98,7 @@ publicRouter.use(backupRoutes.publicRouter);
 publicRouter.use(blogRoutes.publicRouter);
 publicRouter.use(projectLogosRoutes.publicRouter);
 publicRouter.use(reviewsRoutes.publicRouter);
+publicRouter.use(chatRoutes.publicRouter);
 
 app.use("/api/public", publicRouter);
 
@@ -117,6 +119,7 @@ adminRouter.use(backupRoutes.adminRouter);
 adminRouter.use(blogRoutes.adminRouter);
 adminRouter.use(projectLogosRoutes.adminRouter);
 adminRouter.use(reviewsRoutes.adminRouter);
+adminRouter.use(chatRoutes.adminRouter);
 
 app.use("/api/admin", adminRouter);
 

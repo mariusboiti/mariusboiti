@@ -987,6 +987,106 @@ async function generateBlogField(input = {}) {
   throw new Error(`Câmp necunoscut pentru generare: ${field}`);
 }
 
+/**
+ * Multi-turn chat completion — supports conversation history.
+ *
+ * @param {object} opts
+ * @param {"gemini"|"openai"} opts.provider
+ * @param {string}  opts.model
+ * @param {string}  opts.apiKey
+ * @param {number}  opts.temperature
+ * @param {number}  opts.maxTokens
+ * @param {string}  opts.systemPrompt
+ * @param {Array<{role:"user"|"assistant", content:string}>} opts.history
+ * @param {string}  opts.message   — current user message
+ * @returns {Promise<{provider:string, model:string, text:string}>}
+ */
+async function chatCompletion({
+  provider = "gemini",
+  model,
+  apiKey,
+  temperature = 0.7,
+  maxTokens = 800,
+  systemPrompt = "",
+  history = [],
+  message
+}) {
+  ensureFetch();
+
+  const normalizedProvider = provider === "openai" ? "openai" : "gemini";
+  const resolvedKey = getKey(normalizedProvider, apiKey);
+  if (!resolvedKey) throw new Error(keyError(normalizedProvider));
+
+  const finalModel = sanitizeText(model || getProviderModel(normalizedProvider), 120);
+  const temp = clampTemperature(temperature);
+  const tokens = clampTokens(maxTokens);
+  const cleanMessage = String(message || "").trim();
+  if (!cleanMessage) throw new Error("Mesajul este obligatoriu.");
+
+  // ─── OpenAI ───────────────────────────────────────────────
+  if (normalizedProvider === "openai") {
+    const messages = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    for (const h of history) {
+      messages.push({
+        role: h.role === "assistant" ? "assistant" : "user",
+        content: String(h.content || "").slice(0, 4000)
+      });
+    }
+    messages.push({ role: "user", content: cleanMessage });
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resolvedKey}`
+      },
+      body: JSON.stringify({ model: finalModel, temperature: temp, max_tokens: tokens, messages })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
+
+    const text = data?.choices?.[0]?.message?.content || "";
+    return { provider: normalizedProvider, model: finalModel, text: String(text).trim() };
+  }
+
+  // ─── Gemini ───────────────────────────────────────────────
+  const contents = [];
+  for (const h of history) {
+    contents.push({
+      role: h.role === "assistant" ? "model" : "user",
+      parts: [{ text: String(h.content || "").slice(0, 4000) }]
+    });
+  }
+  contents.push({ role: "user", parts: [{ text: cleanMessage }] });
+
+  const generationConfig = { temperature: temp, maxOutputTokens: tokens };
+  if (/2\.5-flash/i.test(finalModel)) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
+  const body = { contents, generationConfig };
+  if (systemPrompt) {
+    body.systemInstruction = { parts: [{ text: systemPrompt }] };
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(finalModel)}:generateContent?key=${encodeURIComponent(resolvedKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }
+  );
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error?.message || "Gemini request failed.");
+
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join("") || "";
+  return { provider: normalizedProvider, model: finalModel, text: String(text).trim() };
+}
+
 module.exports = {
   generateText,
   generateImage,
@@ -998,5 +1098,6 @@ module.exports = {
   fixSeoIssues,
   fixSeoIssueItem,
   generateBlogField,
-  generateImagePrompt
+  generateImagePrompt,
+  chatCompletion
 };
