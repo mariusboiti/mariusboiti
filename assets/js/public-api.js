@@ -415,7 +415,19 @@
       const settings = await fetchJson("/api/public/settings");
 
       if (settings.ga_measurement_id) {
-        injectGA4(settings.ga_measurement_id);
+        // GDPR: only inject GA4 if user has consented to analytics cookies
+        var gaId = settings.ga_measurement_id;
+        var cookieConsent = localStorage.getItem("mb_cookie_consent");
+        if (cookieConsent === "all") {
+          injectGA4(gaId);
+        } else {
+          // Wait for user to accept via the cookie banner
+          window.addEventListener("mb:cookie-consent", function (e) {
+            if (e.detail && e.detail.level === "all") {
+              injectGA4(gaId);
+            }
+          }, { once: true });
+        }
       }
 
       const brandName = settings.logo_text || settings.site_name;

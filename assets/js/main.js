@@ -353,6 +353,7 @@ initSmoothScroll();
 initCalculatorCtaTracking();
 initBackToTop();
 initScrolledHeader();
+initCookieBanner();
 
 let heroVantaEffect = null;
 let servicesVantaEffect = null;
@@ -674,4 +675,79 @@ window.addEventListener("beforeunload", () => {
     processVantaEffect.destroy();
   }
 });
+
+/* ══════════════════════════════════════════════════
+   Cookie Consent Banner
+   ══════════════════════════════════════════════════ */
+function initCookieBanner() {
+  var CONSENT_KEY = "mb_cookie_consent";
+  var existing = localStorage.getItem(CONSENT_KEY);
+
+  // Inject banner HTML
+  var banner = document.createElement("div");
+  banner.id = "cookie-banner";
+  banner.setAttribute("role", "dialog");
+  banner.setAttribute("aria-label", "Consimtamant cookie-uri");
+  banner.innerHTML =
+    '<div class="cb-inner">' +
+      '<p class="cb-text">Folosim cookie-uri esentiale pentru functionarea site-ului si, cu acordul tau, cookie-uri analitice (Google Analytics) pentru a intelege cum este utilizat site-ul.' +
+      ' <a href="/privacy-policy">Afla mai multe</a>.</p>' +
+      '<div class="cb-actions">' +
+        '<button class="cb-btn-accept" id="cb-accept-all" type="button">Accept toate</button>' +
+        '<button class="cb-btn-essential" id="cb-essential-only" type="button">Doar esentiale</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(banner);
+
+  // Floating re-open button (cookie icon)
+  var settingsBtn = document.createElement("button");
+  settingsBtn.id = "cookie-settings-btn";
+  settingsBtn.type = "button";
+  settingsBtn.setAttribute("aria-label", "Setari cookie-uri");
+  settingsBtn.setAttribute("title", "Setari cookie-uri");
+  settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"></path></svg>';
+  document.body.appendChild(settingsBtn);
+
+  function hideBanner() {
+    banner.classList.remove("cb-visible");
+    banner.classList.add("cb-hidden");
+    settingsBtn.classList.add("csb-visible");
+  }
+
+  function showBanner() {
+    banner.classList.remove("cb-hidden");
+    setTimeout(function () { banner.classList.add("cb-visible"); }, 50);
+    settingsBtn.classList.remove("csb-visible");
+  }
+
+  function giveConsent(level) {
+    localStorage.setItem(CONSENT_KEY, level);
+    hideBanner();
+    if (level === "all") {
+      window.dispatchEvent(new CustomEvent("mb:cookie-consent", { detail: { level: "all" } }));
+    }
+  }
+
+  document.getElementById("cb-accept-all").addEventListener("click", function () {
+    giveConsent("all");
+  });
+  document.getElementById("cb-essential-only").addEventListener("click", function () {
+    giveConsent("essential");
+  });
+  settingsBtn.addEventListener("click", function () {
+    localStorage.removeItem(CONSENT_KEY);
+    showBanner();
+  });
+
+  // Show banner if no consent recorded yet
+  if (!existing) {
+    setTimeout(function () { showBanner(); }, 800);
+  } else {
+    settingsBtn.classList.add("csb-visible");
+    // If already consented to all, fire event for GA4
+    if (existing === "all") {
+      window.dispatchEvent(new CustomEvent("mb:cookie-consent", { detail: { level: "all" } }));
+    }
+  }
+}
 
