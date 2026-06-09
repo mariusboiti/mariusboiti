@@ -364,6 +364,30 @@
     });
   }
 
+  /**
+   * Wire up the ? info toggle buttons on package cards.
+   * Uses event delegation so it works for both static HTML and API-rendered cards.
+   * Safe to call multiple times on the same container — uses a flag to prevent
+   * duplicate listeners.
+   */
+  function initPkgInfoButtons(container) {
+    if (!container || container.dataset.pkgInfoReady) return;
+    container.dataset.pkgInfoReady = "1";
+    container.addEventListener("click", (e) => {
+      const btn = e.target.closest(".pkg-info-btn");
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const panelId = btn.getAttribute("aria-controls");
+      const panel = panelId ? document.getElementById(panelId) : null;
+      if (!panel) return;
+      const nowVisible = panel.hidden;
+      panel.hidden = !nowVisible;
+      btn.setAttribute("aria-expanded", String(nowVisible));
+      btn.classList.toggle("is-active", nowVisible);
+    });
+  }
+
   async function applySeo() {
     const pageMap = {
       index: "index",
@@ -527,19 +551,30 @@
 
       const packagesGrid = document.getElementById("homepage-packages-grid");
       if (packagesGrid && Array.isArray(packagesData) && packagesData.length) {
+        const infoSvg = `<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>`;
         const normalized = packagesData.slice(0, 3);
         packagesGrid.innerHTML = normalized
           .map((item) => {
             const features = asList(item.features_json).slice(0, 5).map((v) => `<li>${v}</li>`).join("");
+            const panelId = `pkg-info-${(item.slug || item.name || "").replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
+            const desc = item.short_description ? `<div class="pkg-info-panel" id="${panelId}" hidden>${item.short_description}</div>` : "";
+            const priceBadge = (item.show_price && item.price_from)
+              ? `<p class="pkg-price-badge"><span class="pkg-price-from">de la</span> ${Number(item.price_from).toLocaleString("ro-RO")} EUR</p>`
+              : "";
             return `<article class="card neon-card" data-reveal>
-              <h3>${item.name}</h3>
-              <p>${item.short_description || "Pachet orientativ pentru proiecte web."}</p>
+              <div class="pkg-card-head">
+                <h3>${item.name}</h3>
+                ${item.short_description ? `<button type="button" class="pkg-info-btn" aria-expanded="false" aria-controls="${panelId}" aria-label="Află mai multe despre pachetul ${item.name}">${infoSvg}</button>` : ""}
+              </div>
+              ${desc}
+              ${priceBadge}
               <ul>${features}</ul>
               <a class="package-action-button" href="/calculator-pret?calc_site=${encodeURIComponent(item.slug || "")}" data-calculator-cta><span>Calculează prețul</span></a>
             </article>`;
           })
           .join("");
         activateReveal(packagesGrid);
+        initPkgInfoButtons(packagesGrid);
       }
 
       const faqList = document.getElementById("homepage-faq-list");
@@ -1540,6 +1575,10 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
+    // Init pkg info buttons on static HTML cards (before API data replaces them)
+    const staticPkgGrid = document.getElementById("homepage-packages-grid");
+    if (staticPkgGrid) initPkgInfoButtons(staticPkgGrid);
+
     await applySeo();
     await applySettings();
     await applyHomepageData();

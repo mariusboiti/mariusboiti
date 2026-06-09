@@ -1,25 +1,25 @@
 ﻿const PRICE_CALCULATOR_CONFIG = {
   siteType: [
-    { id: "one-page", label: "Site one-page", basePrice: 1200 },
-    { id: "sales-landing", label: "Landing page de vânzare", basePrice: 1500 },
-    { id: "presentation", label: "Site de prezentare", basePrice: 2500 },
-    { id: "simple-shop", label: "Magazin online simplu", basePrice: 4000 },
-    { id: "redesign", label: "Redesign site existent", basePrice: 1800 },
-    { id: "not-sure", label: "Nu sunt sigur", basePrice: 2500 }
+    { id: "one-page",      label: "Site one-page",            basePrice: 1200, description: "O singură pagină cu scroll lung care conține toate secțiunile (Acasă, Servicii, Contact). Simplu, rapid și potrivit pentru freelanceri, campanii sau prezentări simple." },
+    { id: "sales-landing", label: "Landing page de vânzare",  basePrice: 1500, description: "Pagină dedicată unui singur serviciu sau produs, construită să convingă și să genereze o acțiune clară — programare, contact sau cumpărare." },
+    { id: "presentation",  label: "Site de prezentare",       basePrice: 2500, description: "Site cu 3–6 pagini separate (Acasă, Despre, Servicii, Contact). Potrivit pentru firme, cabinete, agenții sau afaceri locale cu mai multe servicii." },
+    { id: "simple-shop",   label: "Magazin online simplu",    basePrice: 4000, description: "Catalog de produse cu coș de cumpărături și plăți online integrate (Stripe sau PayPal). Ideal pentru magazine mici sau medii cu câteva zeci de produse." },
+    { id: "redesign",      label: "Redesign site existent",   basePrice: 1800, description: "Pornești de la un site existent — îl modernizezi cu un design nou, viteză mai bună și structură clară. Conținutul existent poate fi migrat." },
+    { id: "not-sure",      label: "Nu sunt sigur",            basePrice: 2500, description: "Nu știi exact ce tip de site ai nevoie? Nicio problemă — vom stabili împreună varianta potrivită la prima discuție, în funcție de obiectivele tale." }
   ],
   pages: [
-    { id: "1", label: "1 pagină", add: 0 },
-    { id: "2-4", label: "2-4 pagini", add: 600 },
-    { id: "5-7", label: "5-7 pagini", add: 1200 },
-    { id: "8-12", label: "8-12 pagini", add: 2000 },
-    { id: "12+", label: "Peste 12 pagini", add: 3000 },
-    { id: "not-sure", label: "Nu știu încă", add: 1000 }
+    { id: "1",       label: "1 pagină",          add: 0,    description: "Toate secțiunile pe o singură pagină cu scroll — Hero, Servicii, Portofoliu, Contact. Simplu și direct, fără navigare complexă." },
+    { id: "2-4",     label: "2-4 pagini",         add: 600,  description: "Câteva pagini distincte cu navigare în meniu. Ex: Acasă + Servicii + Contact + Despre. Bun pentru un site mic dar complet." },
+    { id: "5-7",     label: "5-7 pagini",         add: 1200, description: "Site mediu. Ideal pentru firme cu mai multe servicii sau secțiuni separate pentru echipă, blog sau cazuri de succes." },
+    { id: "8-12",    label: "8-12 pagini",        add: 2000, description: "Site extins cu pagini dedicate fiecărui serviciu, plus blog, echipă, FAQ și resurse. Potrivit pentru firme mai mari." },
+    { id: "12+",     label: "Peste 12 pagini",    add: 3000, description: "Proiect mare — platforme, magazine online, portaluri sau site-uri complexe cu multe categorii și utilizatori." },
+    { id: "not-sure",label: "Nu știu încă",       add: 1000, description: "Nu trebuie să știi exact acum. Stabilim împreună structura optimă la prima discuție, fără nicio presiune." }
   ],
   content: [
-    { id: "ready", label: "Da, am textele pregătite", add: 0 },
-    { id: "ideas", label: "Am idei, dar trebuie aranjate", add: 500 },
-    { id: "from-scratch", label: "Vreau texte scrise de la zero", add: 1200 },
-    { id: "not-sure", label: "Nu știu încă", add: 600 }
+    { id: "ready",        label: "Da, am textele pregătite",      add: 0,    description: "Ai deja textele scrise și le poți trimite direct. Cel mai rapid și mai economic — fără cost suplimentar pentru copywriting." },
+    { id: "ideas",        label: "Am idei, dar trebuie aranjate", add: 500,  description: "Ai schița sau punctele principale, dar nu textele finale. Le structurăm, corectăm și rafinăm împreună până arată profesionist." },
+    { id: "from-scratch", label: "Vreau texte scrise de la zero", add: 1200, description: "Scriem texte SEO-optimizate de la zero pentru fiecare pagină — cercetare, copywriting orientat spre conversie și formatare inclusă." },
+    { id: "not-sure",     label: "Nu știu încă",                  add: 600,  description: "Nu ești sigur ce ai pregătit. Evaluăm împreună la prima discuție și stabilim cea mai bună variantă." }
   ],
   extras: [
     { id: "advanced-form", label: "Formular de contact avansat", add: 300 },
@@ -42,17 +42,17 @@
     { id: "training", label: "Training scurt după livrare", add: 300 }
   ],
   design: [
-    { id: "simple", label: "Design simplu și curat", add: 0 },
-    { id: "premium", label: "Design premium personalizat", add: 1000 },
-    { id: "advanced", label: "Design avansat cu animații și secțiuni speciale", add: 2000 },
-    { id: "not-sure", label: "Nu știu încă", add: 700 }
+    { id: "simple",   label: "Design simplu și curat",                        add: 0,    description: "Layout curat și modern, fără efecte complexe sau animații. Rapid de livrat, profesionist și funcțional — exact ce are nevoie un site de prezentare eficient." },
+    { id: "premium",  label: "Design premium personalizat",                   add: 1000, description: "Design personalizat cu identitate vizuală puternică — culori, fonturi și grafică adaptate brandului tău. Arată distinct față de site-urile generice." },
+    { id: "advanced", label: "Design avansat cu animații și secțiuni speciale", add: 2000, description: "Animații fluide, tranziții și secțiuni interactive. Ideal pentru portofolii, agenții sau startup-uri care vor impact vizual maxim și o experiență memorabilă." },
+    { id: "not-sure", label: "Nu știu încă",                                   add: 700,  description: "Îți arătăm exemple vizuale la prima întâlnire și stabilim împreună nivelul potrivit brandului și bugetului tău." }
   ],
   deadline: [
-    { id: "not-rush", label: "Nu mă grăbesc", add: 0 },
-    { id: "2-3-weeks", label: "În 2-3 săptămâni", add: 0 },
-    { id: "7-10-days", label: "În 7-10 zile", add: 700 },
-    { id: "under-7", label: "Urgent, sub 7 zile", add: 1500 },
-    { id: "not-sure", label: "Nu știu încă", add: 300 }
+    { id: "not-rush",   label: "Nu mă grăbesc",         add: 0,    description: "Fără termen fix — planificăm livrarea în mod optim, cu timp suficient pentru calitate. Fără niciun cost suplimentar." },
+    { id: "2-3-weeks",  label: "În 2-3 săptămâni",      add: 0,    description: "Termen standard, suficient pentru un proiect de calitate livrat cu atenție la detalii. Fără cost suplimentar." },
+    { id: "7-10-days",  label: "În 7-10 zile",          add: 700,  description: "Termen scurt — posibil, dar necesită materiale gata rapid și disponibilitate activă din ambele părți." },
+    { id: "under-7",    label: "Urgent, sub 7 zile",    add: 1500, description: "Termen urgent — livrăm rapid, dar necesită focus dedicat și implică o taxă de urgență pentru prioritizarea proiectului tău." },
+    { id: "not-sure",   label: "Nu știu încă",           add: 300,  description: "Nu știi exact când ai nevoie. Stabilim un termen realist la prima discuție, în funcție de disponibilitate și complexitate." }
   ]
 };
 
@@ -481,22 +481,29 @@ class PriceCalculator {
         const isActive = selectedValue === option.id;
         const baseOrAdd = step.priceField === "basePrice" ? option.basePrice : option.add;
         const sign = baseOrAdd > 0 ? "+ " : "";
+        const desc = escHtml(option.description || "");
+        const infoId = `calc-desc-${step.key}-${option.id}`;
+        const infoSvg = `<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>`;
 
         return `
-          <button
-            type="button"
-            class="calc-option ${isActive ? "active" : ""}"
-            data-single-option
-            data-step-key="${step.key}"
-            data-option-id="${option.id}"
-            aria-pressed="${isActive ? "true" : "false"}"
-          >
-            <span class="calc-option-main">
-              <span class="calc-option-indicator" aria-hidden="true">${isActive ? "✓" : ""}</span>
-              <span class="calc-option-label">${option.label}</span>
-            </span>
-            <span class="calc-option-price">${sign}${formatLei(baseOrAdd)}</span>
-          </button>
+          <div class="calc-option-item">
+            <button
+              type="button"
+              class="calc-option ${isActive ? "active" : ""}${desc ? " has-info" : ""}"
+              data-single-option
+              data-step-key="${step.key}"
+              data-option-id="${option.id}"
+              aria-pressed="${isActive ? "true" : "false"}"
+            >
+              <span class="calc-option-main">
+                <span class="calc-option-indicator" aria-hidden="true">${isActive ? "✓" : ""}</span>
+                <span class="calc-option-label">${option.label}</span>
+              </span>
+              <span class="calc-option-price">${sign}${formatLei(baseOrAdd)}</span>
+            </button>
+            ${desc ? `<button type="button" class="calc-info-btn" data-info-toggle="${step.key}-${option.id}" aria-expanded="false" aria-controls="${infoId}" aria-label="Detalii despre această opțiune">${infoSvg}</button>` : ""}
+            ${desc ? `<div class="calc-option-desc" id="${infoId}" hidden>${desc}</div>` : ""}
+          </div>
         `;
       })
       .join("");

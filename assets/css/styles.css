@@ -5478,3 +5478,75 @@ body[data-public-page="blog"] .hero.hero-compact {
     border-radius: 16px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PACKAGE CARDS — info button, info panel, price badge
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Flex row so the package name and ? button sit side by side */
+.pkg-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.85rem;
+}
+.pkg-card-head h3 {
+  margin: 0;
+  flex: 1;
+}
+
+/* ⓘ inline info button (next to the package name) */
+.pkg-info-btn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: rgba(148, 163, 184, 0.5);
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.pkg-info-btn:hover { color: #2dd4bf; background: rgba(45, 212, 191, 0.12); }
+.pkg-info-btn.is-active { color: #2dd4bf; background: rgba(45, 212, 191, 0.16); }
+.pkg-info-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* Collapsible description panel */
+.pkg-info-panel {
+  margin: 0 0 0.8rem;
+  padding: 0.6rem 0.9rem;
+  background: rgba(45, 212, 191, 0.06);
+  border: 1px solid rgba(45, 212, 191, 0.18);
+  border-radius: 10px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(203, 213, 225, 0.9);
+  animation: pkgInfoFadeIn 0.15s ease;
+}
+@keyframes pkgInfoFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* "De la X EUR" price badge on package cards */
+.pkg-price-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #2dd4bf;
+  letter-spacing: 0.01em;
+}
+.pkg-price-badge .pkg-price-from {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(148, 163, 184, 0.75);
+  text-transform: lowercase;
+}
