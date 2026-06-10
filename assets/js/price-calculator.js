@@ -39,6 +39,7 @@
     { id: "content-migration", label: "Migrare conținut site existent", add: 600 },
     { id: "ai-chatbot", label: "Chatbot AI <span class='calc-badge-new'>NOU</span>", add: 1500 },
     { id: "copywriting-pkg", label: "Pachet copywriting inclus", add: 800 },
+    { id: "seo-articles-pkg", label: "Pachet 10 articole SEO", add: 2000 },
     { id: "training", label: "Training scurt după livrare", add: 300 }
   ],
   design: [

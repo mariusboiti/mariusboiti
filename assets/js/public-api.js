@@ -559,7 +559,7 @@
             const panelId = `pkg-info-${(item.slug || item.name || "").replace(/[^a-z0-9]/gi, "-").toLowerCase()}`;
             const desc = item.short_description ? `<div class="pkg-info-panel" id="${panelId}" hidden>${item.short_description}</div>` : "";
             const priceBadge = (item.show_price && item.price_from)
-              ? `<p class="pkg-price-badge"><span class="pkg-price-from">de la</span> ${Number(item.price_from).toLocaleString("ro-RO")} EUR</p>`
+              ? `<p class="pkg-price-badge"><span class="pkg-price-from">de la</span> ${Number(item.price_from).toLocaleString("ro-RO")} lei</p>`
               : "";
             return `<article class="card neon-card" data-reveal>
               <div class="pkg-card-head">
